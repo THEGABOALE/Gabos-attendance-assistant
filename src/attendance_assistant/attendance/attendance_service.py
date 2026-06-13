@@ -1,6 +1,8 @@
 from playwright.async_api import Page
 from loguru import logger
 
+from attendance_assistant.whatsapp.whatsapp_service import WhatsappService
+
 class AttendanceService:
     """
     Evalúa la disponibilidad de ventanas de asistencia dentro de cada asignatura.
@@ -49,8 +51,14 @@ class AttendanceService:
                     "a:has-text('Submit attendance')"
                 )
 
-                if await submit_attendance_locator.count() > 0:
+                if await submit_attendance_locator.count() > 0 or True:
                     logger.success(f"*** VENTANA DE ASISTENCIA ABIERTA DETECTADA: {course_name} (Instancia {index}) ***")
+                    
+                    # Disparador de la notificación
+                    wa_service = WhatsappService()
+                    alerta = f"🚨 UAM Asistencias 🚨\n\n¡La asistencia de *{course_name}* está abierta!\nIngresa rápido a marcarla."
+                    await wa_service.send_message(alerta)
+                    
                     return True
             
             logger.info(f"  - Evaluación completada. {real_count} instancia(s) cerradas.")

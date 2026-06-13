@@ -25,8 +25,9 @@ class Settings(BaseModel):
     HEADLESS: bool = os.getenv("HEADLESS_MODE", "False").lower() == "true"
     TIMEOUT: int = int(os.getenv("BROWSER_TIMEOUT", 30000))
     
-    # Rutas del sistema (Ajustado a tu estructura exacta)
+    # Rutas del sistema 
     STATE_FILE: Path = BASE_DIR / "state" / "state.json"
+    WA_STATE_FILE: Path = BASE_DIR / "state" / "wa_state.json"
     LOGS_DIR: Path = BASE_DIR / "logs"
     SCREENSHOTS_DIR: Path = BASE_DIR / "screenshots"
 
