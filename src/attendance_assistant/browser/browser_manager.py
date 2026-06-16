@@ -1,5 +1,5 @@
 from playwright.async_api import async_playwright, Page
-from loguru import logger
+from attendance_assistant.core.logger import logger 
 from attendance_assistant.config.settings import config
 from attendance_assistant.auth.login_service import LoginService
 
@@ -25,12 +25,20 @@ class BrowserManager:
 
         state_path = config.STATE_FILE
         
+        # Configuración del "Disfraz" para Headless Mode
+        context_options = {
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+            "viewport": {"width": 1366, "height": 768}
+        }
+        
         if state_path.exists() and state_path.stat().st_size > 0:
             logger.info("Cargando estado de sesión previo...")
-            self.context = await self.browser.new_context(storage_state=state_path)
+            # Pasamos las opciones al contexto guardado
+            self.context = await self.browser.new_context(storage_state=state_path, **context_options)
         else:
             logger.info("No se encontró estado previo o está vacío. Iniciando contexto limpio.")
-            self.context = await self.browser.new_context()
+            # Pasamos las opciones al contexto nuevo
+            self.context = await self.browser.new_context(**context_options)
 
         self.page = await self.context.new_page()
 

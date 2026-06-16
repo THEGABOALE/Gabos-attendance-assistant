@@ -26,8 +26,10 @@ class WhatsappService:
                 context = await p.chromium.launch_persistent_context(
                     user_data_dir=self.profile_dir,
                     headless=config.HEADLESS,
-                    args=["--disable-blink-features=AutomationControlled"]
-                )
+                    args=["--disable-blink-features=AutomationControlled"],
+                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+                    viewport={"width": 1366, "height": 768}            
+                    )
                 
                 page = context.pages[0] if context.pages else await context.new_page()
 

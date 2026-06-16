@@ -1,41 +1,54 @@
 import sys
 import asyncio
+from datetime import datetime
 from pathlib import Path
 from loguru import logger
 
 src_path = str(Path(__file__).resolve().parent.parent.parent)
-if src_path not in sys.path:
-    sys.path.append(src_path)
+if sys.path[0] != src_path:
+    sys.path.insert(0, src_path)
 
 from attendance_assistant.config.settings import config
 from attendance_assistant.main import main as run_scanner
 from attendance_assistant.utils.time_utils import load_schedule, get_active_classes
 
 SCHEDULE_PATH = config.BASE_DIR / "src" / "attendance_assistant" / "storage" / "horario.json"
-HEARTBEAT_SECONDS = 60 # Despierta cada minuto para ver la hora
+HEARTBEAT_SECONDS = 60 
 
 async def run_smart_scheduler():
     logger.info("Servicio Smart Scheduler inicializado. (Latido cada 60s)")
-    logger.info("Reglas de ejecución: 10 mins antes -> 30 mins después del inicio de clase.")
+    logger.info("Reglas: 10 mins antes -> 30 mins después. Solo chequea si no se ha marcado hoy.")
     
+    # Memoria a corto plazo del bot
+    completed_today = {}
+
     while True:
         try:
-            # Leemos el horario en cada iteración
+            # Revisamos qué día es hoy para limpiar la memoria si cambió el día
+            today_str = datetime.now().strftime("%Y-%m-%d")
+            if today_str not in completed_today:
+                completed_today = {today_str: []}
+
             eventos = load_schedule(SCHEDULE_PATH)
             clases_activas = get_active_classes(eventos)
             
-            if clases_activas:
-                nombres = ", ".join(clases_activas)
-                logger.success(f"¡Ventana de asistencia crítica detectada! Materia(s): {nombres}")
-                logger.info("Levantando motor de Playwright para captura...")
+            # EL FILTRO DE ORO: Solo las clases que están en el horario Y que NO hemos marcado hoy
+            clases_pendientes = [c for c in clases_activas if c not in completed_today[today_str]]
+            
+            if clases_pendientes:
+                nombres = ", ".join(clases_pendientes)
+                logger.success(f"¡Ventana de asistencia crítica! Materia(s) pendiente(s): {nombres}")
                 
-                # Le pasamos la lista de materias filtradas al motor principal
-                await run_scanner(target_classes=clases_activas)
+                # Ejecutamos el bot y esperamos la lista de lo que logró marcar
+                marked = await run_scanner(target_classes=clases_pendientes)
                 
-            else:
-                # Opcional: imprimir un mensaje de latido en la consola para saber que sigue vivo
-                logger.debug("Fuera de horario de clases. Mantenimiento en standby...")
-                
+                # Si logró marcar algo, lo agregamos a la memoria
+                if marked:
+                    for m in marked:
+                        if m not in completed_today[today_str]:
+                            completed_today[today_str].append(m)
+                            logger.info(f"✅ Materia '{m}' registrada como COMPLETADA por hoy. El bot descansará.")
+            
         except Exception as e:
             logger.error(f"Falla detectada en el ciclo de evaluación temporal: {e}")
         

@@ -1,7 +1,7 @@
 import sys
 import asyncio
 from pathlib import Path
-from loguru import logger
+from attendance_assistant.core.logger import logger
 
 src_path = str(Path(__file__).resolve().parent.parent)
 if src_path not in sys.path:
@@ -11,10 +11,11 @@ from attendance_assistant.browser.browser_manager import BrowserManager
 from attendance_assistant.courses.course_service import CourseService
 from attendance_assistant.attendance.attendance_service import AttendanceService
 
-# NUEVO: Aceptamos target_classes como parámetro
+# Aceptamos target_classes como parámetro
 async def main(target_classes=None): 
     
     browser_manager = BrowserManager()
+    marked_targets = []
     
     try:
         page = await browser_manager.start_session()
@@ -34,20 +35,27 @@ async def main(target_classes=None):
             
             if not courses:
                 logger.warning("No se encontraron coincidencias entre el horario y Moodle en este momento.")
-                return
+                return marked_targets
 
         attendance_service = AttendanceService(page)
         
         logger.info(f"Iniciando evaluación secuencial de {len(courses)} asignaturas filtradas...")
         
         for course in courses:
-            await attendance_service.check_course_attendance(
+            success = await attendance_service.check_course_attendance(
                 course_name=course["name"], 
                 course_url=course["url"]
             )
+
+            if success and target_classes:
+                for target in target_classes:
+                    if target.upper() in course["name"].upper():
+                        marked_targets.append(target)
+            
             await page.wait_for_timeout(1000)
 
         logger.success("Ciclo de monitoreo completado satisfactoriamente.")
+        return marked_targets
         
     except Exception as e:
         logger.error(f"Interrupción inesperada durante la ejecución: {e}")
