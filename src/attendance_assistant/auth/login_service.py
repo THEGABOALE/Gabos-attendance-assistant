@@ -1,11 +1,10 @@
 from playwright.async_api import Page
-from loguru import logger
+from attendance_assistant.core.logger import logger
+from attendance_assistant.core.exceptions import MoodleAuthError
 from attendance_assistant.config.settings import config
+from attendance_assistant.browser.selectors import MoodleSelectors
 
 class LoginService:
-    """
-    Servicio encargado de gestionar la autenticación en la plataforma Moodle.
-    """
     def __init__(self, page: Page):
         self.page = page
 
@@ -22,13 +21,10 @@ class LoginService:
 
             logger.info("Sesión no válida o expirada. Solicitando nuevas credenciales...")
             
-            username_selector = "#username"
-            password_selector = "#password"
-            login_button_selector = "#loginbtn"
-
-            await self.page.fill(username_selector, config.USERNAME)
-            await self.page.fill(password_selector, config.PASSWORD)
-            await self.page.click(login_button_selector)
+            # Usando los selectores centralizados
+            await self.page.fill(MoodleSelectors.LOGIN_USERNAME, config.USERNAME)
+            await self.page.fill(MoodleSelectors.LOGIN_PASSWORD, config.PASSWORD)
+            await self.page.click(MoodleSelectors.LOGIN_BUTTON)
             
             try:
                 await self.page.wait_for_url("**/grado/my/**", timeout=config.TIMEOUT)
@@ -39,22 +35,21 @@ class LoginService:
                 logger.info("Autenticación procesada exitosamente.")
                 return True
             else:
-                logger.error("Fallo de autenticación. Verifique las credenciales.")
-                return False
+                # Disparando nuestra excepción personalizada
+                raise MoodleAuthError("Fallo de autenticación. Verifique las credenciales en el archivo .env.")
 
+        except MoodleAuthError as e:
+            logger.error(str(e))
+            return False
         except Exception as e:
             logger.error(f"Error estructural durante la autenticación: {e}")
             return False
 
     async def _is_logged_in(self) -> bool:
-        """
-        Comprueba el estado de la sesión verificando la URL o nodos exclusivos del DOM.
-        """
         try:
             if "/grado/my/" in self.page.url:
                 return True
-            
-            await self.page.wait_for_selector(".usermenu", timeout=3000)
+            await self.page.wait_for_selector(MoodleSelectors.DASHBOARD_CHECK, timeout=3000)
             return True
         except:
             return False
