@@ -3,39 +3,46 @@ import asyncio
 from pathlib import Path
 from loguru import logger
 
-# Resolución de rutas para el módulo src/
 src_path = str(Path(__file__).resolve().parent.parent.parent)
 if src_path not in sys.path:
     sys.path.append(src_path)
 
-# Importamos la función principal de tu main.py
+from attendance_assistant.config.settings import config
 from attendance_assistant.main import main as run_scanner
+from attendance_assistant.utils.time_utils import load_schedule, get_active_classes
 
-# Configuración de intervalo (en minutos)
-INTERVALO_MINUTOS = 15
+SCHEDULE_PATH = config.BASE_DIR / "src" / "attendance_assistant" / "storage" / "horario.json"
+HEARTBEAT_SECONDS = 60 # Despierta cada minuto para ver la hora
 
-async def run_scheduler():
-    """
-    Bucle infinito que ejecuta el escáner de asistencias y suspende 
-    la ejecución para conservar recursos del sistema y evitar bloqueos de red.
-    """
-    logger.info(f"Servicio Scheduler inicializado. Frecuencia de escaneo: {INTERVALO_MINUTOS} minutos.")
+async def run_smart_scheduler():
+    logger.info("Servicio Smart Scheduler inicializado. (Latido cada 60s)")
+    logger.info("Reglas de ejecución: 10 mins antes -> 30 mins después del inicio de clase.")
     
     while True:
         try:
-            logger.info("Ejecutando rutina de monitoreo programada...")
-            await run_scanner()
-            logger.info(f"Rutina finalizada. Suspendiendo subprocesos por {INTERVALO_MINUTOS} minutos...")
+            # Leemos el horario en cada iteración
+            eventos = load_schedule(SCHEDULE_PATH)
+            clases_activas = get_active_classes(eventos)
             
+            if clases_activas:
+                nombres = ", ".join(clases_activas)
+                logger.success(f"¡Ventana de asistencia crítica detectada! Materia(s): {nombres}")
+                logger.info("Levantando motor de Playwright para captura...")
+                
+                # Le pasamos la lista de materias filtradas al motor principal
+                await run_scanner(target_classes=clases_activas)
+                
+            else:
+                # Opcional: imprimir un mensaje de latido en la consola para saber que sigue vivo
+                logger.debug("Fuera de horario de clases. Mantenimiento en standby...")
+                
         except Exception as e:
-            logger.error(f"Falla detectada en el ciclo de ejecución del scheduler: {e}")
+            logger.error(f"Falla detectada en el ciclo de evaluación temporal: {e}")
         
-        # Conversión de minutos a segundos para asyncio.sleep
-        await asyncio.sleep(INTERVALO_MINUTOS * 60)
+        await asyncio.sleep(HEARTBEAT_SECONDS)
 
 if __name__ == "__main__":
     try:
-        # Arrancamos el bucle de eventos
-        asyncio.run(run_scheduler())
+        asyncio.run(run_smart_scheduler())
     except KeyboardInterrupt:
-        logger.info("Servicio Scheduler interrumpido manualmente por el operador.")
+        logger.info("Servicio Smart Scheduler interrumpido manualmente.")

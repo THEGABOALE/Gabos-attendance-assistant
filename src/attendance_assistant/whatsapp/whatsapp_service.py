@@ -51,8 +51,9 @@ class WhatsappService:
                 
                 logger.success("Mensaje de alerta emitido correctamente al dispositivo móvil.")
 
-                # Tiempo de gracia para el WebSocket
-                await page.wait_for_timeout(3000)
+                # Esperamos a que la ventana principal del chat cargue (tolerancia de 5 minutos para sincronización)
+                logger.debug("Esperando a que WhatsApp sincronice mensajes (esto puede tomar un par de minutos)...")
+                await page.wait_for_selector("#main", timeout=300000)
 
                 await context.close()
                 return True
