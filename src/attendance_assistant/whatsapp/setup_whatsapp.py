@@ -4,39 +4,45 @@ from pathlib import Path
 from loguru import logger
 from playwright.async_api import async_playwright
 
-# Resolución de rutas
 src_path = str(Path(__file__).resolve().parent.parent.parent)
 if src_path not in sys.path:
     sys.path.append(src_path)
 
 from attendance_assistant.config.settings import config
 
+# Definimos una CARPETA de perfil en lugar de un archivo .json
+PROFILE_DIR = config.BASE_DIR / "state" / "wa_profile"
+
 async def main():
-    logger.info("Inicializando configuración de WhatsApp Web...")
+    logger.info("Inicializando configuración de WhatsApp Web con Perfil Persistente...")
     
     async with async_playwright() as p:
-        # Headless debe ser False para que puedas ver y escanear el QR
-        browser = await p.chromium.launch(headless=False)
-        context = await browser.new_context()
-        page = await context.new_page()
+        # Usamos un contexto persistente para guardar todo el disco duro del navegador (IndexedDB)
+        context = await p.chromium.launch_persistent_context(
+            user_data_dir=PROFILE_DIR,
+            headless=False,
+            args=["--disable-blink-features=AutomationControlled"]
+        )
+        
+        # En los contextos persistentes, la página principal ya viene abierta
+        page = context.pages[0] if context.pages else await context.new_page()
 
         await page.goto("https://web.whatsapp.com/")
         logger.info("ATENCIÓN: Por favor escanea el código QR con la app de WhatsApp en tu dispositivo móvil.")
 
         try:
-            # Esperamos a que aparezca el panel lateral de chats (indicador de login exitoso)
+            # Esperamos a que aparezca el panel lateral
             await page.wait_for_selector("#pane-side", timeout=120000)
-            logger.success("Autenticación de WhatsApp exitosa.")
-
-            # Guardamos el estado de forma persistente
-            config.WA_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-            await context.storage_state(path=config.WA_STATE_FILE)
-            logger.info(f"Credenciales de sesión almacenadas en: {config.WA_STATE_FILE.name}")
+            logger.success("Autenticación exitosa. Sincronizando llaves criptográficas...")
+            
+            # CRÍTICO: Esperamos 10 segundos extra para asegurar que WhatsApp guarde todo en la base de datos
+            await page.wait_for_timeout(10000)
+            logger.info(f"Perfil de sesión guardado exitosamente en la carpeta: {PROFILE_DIR.name}")
             
         except Exception as e:
-            logger.error("Tiempo de espera agotado o error al escanear el QR. Intenta nuevamente.")
+            logger.error(f"Error al escanear el QR o tiempo de espera agotado: {e}")
         finally:
-            await browser.close()
+            await context.close()
 
 if __name__ == "__main__":
     asyncio.run(main())

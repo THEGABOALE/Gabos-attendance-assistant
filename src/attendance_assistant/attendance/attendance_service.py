@@ -51,12 +51,37 @@ class AttendanceService:
                     "a:has-text('Submit attendance')"
                 )
 
-                if await submit_attendance_locator.count() > 0 or True:
+                if await submit_attendance_locator.count() > 0:
                     logger.success(f"*** VENTANA DE ASISTENCIA ABIERTA DETECTADA: {course_name} (Instancia {index}) ***")
                     
-                    # Disparador de la notificación
+                    # 1. Hacemos clic en el enlace de "Enviar asistencia" (esto maneja el sesskey automáticamente)
+                    await submit_attendance_locator.first.click()
+                    await self.page.wait_for_load_state("networkidle")
+                    
+                    logger.info("  - Seleccionando la opción 'Presente'...")
+                    
+                    # 2. Buscar y seleccionar el radio button de "Presente"
+                    # Moodle permite hacer clic en el texto (label) que envuelve al botón circular
+                    present_locator = self.page.locator("label:has-text('Presente')")
+                    
+                    if await present_locator.count() > 0:
+                        await present_locator.first.click()
+                    else:
+                        # Plan B: Si el profesor le cambió el nombre, marcamos la primera opción disponible por defecto
+                        logger.warning("  - Etiqueta 'Presente' no encontrada. Seleccionando la primera opción disponible...")
+                        await self.page.locator("input[type='radio']").first.check()
+                        
+                    # 3. Hacer clic en "Guardar cambios"
+                    logger.info("  - Guardando la asistencia en Moodle...")
+                    save_button = self.page.locator("input[value='Guardar cambios'], button:has-text('Guardar cambios'), input[type='submit']")
+                    await save_button.first.click()
+                    await self.page.wait_for_load_state("networkidle")
+
+                    logger.success(f"✅ ¡Asistencia de {course_name} marcada exitosamente en la plataforma!")
+                    
+                    # 4. Disparador de la notificación de confirmación
                     wa_service = WhatsappService()
-                    alerta = f"🚨 UAM Asistencias 🚨\n\n¡La asistencia de *{course_name}* está abierta!\nIngresa rápido a marcarla."
+                    alerta = f"Asistente de Asistencias\n\nAsistencia de *{course_name}* puesta. Puede verificar en la plataforma."
                     await wa_service.send_message(alerta)
                     
                     return True

@@ -6,14 +6,17 @@ from pydantic import BaseModel
 # Cargamos las variables desde el archivo .env
 load_dotenv()
 
-# Detectamos la ruta base del proyecto para evitar errores de carpetas
-BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
+# Detectamos la ruta base del proyecto en una variable temporal
+BASE_DIR_PATH = Path(__file__).resolve().parent.parent.parent.parent
 
 class Settings(BaseModel):
     """
     Modelo centralizado para la configuración del bot.
     Valida y expone las variables de entorno para todo el proyecto.
     """
+    # 👇 Exponemos BASE_DIR como atributo de la clase 👇
+    BASE_DIR: Path = BASE_DIR_PATH
+
     # URL base corregida según tus enlaces reales
     UAM_BASE_URL: str = "https://uamvirtual.uam.edu.ni" 
     
@@ -26,13 +29,11 @@ class Settings(BaseModel):
     TIMEOUT: int = int(os.getenv("BROWSER_TIMEOUT", 30000))
     
     # Rutas del sistema 
-    STATE_FILE: Path = BASE_DIR / "state" / "state.json"
-    WA_STATE_FILE: Path = BASE_DIR / "state" / "wa_state.json"
-    LOGS_DIR: Path = BASE_DIR / "logs"
-    SCREENSHOTS_DIR: Path = BASE_DIR / "screenshots"
+    STATE_FILE: Path = BASE_DIR_PATH / "state" / "state.json"
+    LOGS_DIR: Path = BASE_DIR_PATH / "logs"
+    SCREENSHOTS_DIR: Path = BASE_DIR_PATH / "screenshots"
 
-    # Credenciales para WhatsApp (Fase 4)
-    WA_API_KEY: str = os.getenv("WA_API_KEY", "")
+    # Credenciales para WhatsApp (Nativo)
     WA_PHONE_NUMBER: str = os.getenv("WA_PHONE_NUMBER", "")
 
 # Instanciamos la configuración
