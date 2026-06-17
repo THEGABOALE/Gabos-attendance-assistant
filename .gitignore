@@ -21,7 +21,7 @@ logs/
 screenshots/
 
 state/
-storage/session.json
+storage/horario.json
 
 *.db
 *.sqlite

@@ -56,14 +56,14 @@ class AttendanceService:
                         logger.success(f"*** VENTANA DE ASISTENCIA ABIERTA DETECTADA: {course_name} (Instancia {index}) ***")
                         
                         # Humanización - Dudar un par de segundos antes de entrar
-                        await self._human_delay(2000, 4000) 
+                        await self._human_delay(500, 1200) 
                         await submit_attendance_locator.first.click()
                         await self.page.wait_for_load_state("networkidle")
                         
                         logger.info("  - Seleccionando la opción 'Presente'...")
                         
                         # Humanización - Buscar la bolita con los ojos
-                        await self._human_delay(1500, 3000) 
+                        await self._human_delay(300, 800) 
                         present_locator = self.page.locator(MoodleSelectors.PRESENT_RADIO)
                         
                         if await present_locator.count() > 0:
@@ -75,7 +75,7 @@ class AttendanceService:
                         logger.info("  - Guardando la asistencia en Moodle...")
                         
                         # Humanización - Mover el mouse a "Guardar"
-                        await self._human_delay(1000, 2500) 
+                        await self._human_delay(400, 900) 
                         save_button = self.page.locator(MoodleSelectors.SAVE_BUTTON)
                         await save_button.first.click()
                         await self.page.wait_for_load_state("networkidle")

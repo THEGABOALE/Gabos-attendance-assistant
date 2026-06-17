@@ -1,19 +1,30 @@
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
-from loguru import logger
+from attendance_assistant.core.logger import logger
 
 def load_schedule(filepath: Path) -> list:
-    """Carga y parsea el archivo de horario exportado."""
+    """Carga y parsea el archivo de horario exportado con tolerancia a fallos."""
     try:
         if not filepath.exists():
             logger.error(f"Archivo de horario no encontrado en: {filepath}")
             return []
-        with open(filepath, 'r', encoding='utf-8') as f:
+            
+        # BLINDAJE 1: Si el archivo pesa exactamente 0 bytes, lo ignoramos sin explotar
+        if filepath.stat().st_size == 0:
+            logger.warning(f"El archivo {filepath.name} está completamente vacío (0 bytes).")
+            return []
+
+        # BLINDAJE 2: Usamos 'utf-8-sig' para ignorar caracteres invisibles de Windows (BOM)
+        with open(filepath, 'r', encoding='utf-8-sig') as f:
             data = json.load(f)
             return data.get("events", []) # Extraemos solo la lista de eventos
+            
+    except json.JSONDecodeError as e:
+        logger.error(f"El archivo {filepath.name} está corrupto o mal formateado: {e}")
+        return []
     except Exception as e:
-        logger.error(f"Error al leer el archivo JSON: {e}")
+        logger.error(f"Error inesperado al leer el archivo JSON: {e}")
         return []
 
 def get_active_classes(events: list) -> list:
