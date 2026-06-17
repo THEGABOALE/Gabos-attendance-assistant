@@ -1,15 +1,17 @@
 .venv/
 venv/
+env/
 
 .env
 .env.local
 
-pycache/
+__pycache__/
 *.py[cod]
 *$py.class
 
 build/
 dist/
+*.spec
 *.egg-info/
 
 .vscode/
@@ -17,15 +19,11 @@ dist/
 
 logs/
 *.log
-
 screenshots/
 
 state/
-storage/horario.json
-
-*.db
-*.sqlite
-*.sqlite3
+storage/*.json
+*.pid
 
 .pytest_cache/
 .coverage
