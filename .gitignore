@@ -22,7 +22,7 @@ logs/
 screenshots/
 
 state/
-storage/*.json
+**/storage/*.json
 *.pid
 
 .pytest_cache/
