@@ -15,6 +15,7 @@ class BrowserManager:
         self.page = None
 
     async def start_session(self) -> Page:
+        config.validate_required_credentials()
         logger.info("Inicializando motor de Playwright...")
         self.playwright = await async_playwright().start()
         

@@ -21,14 +21,14 @@ ctk.set_default_color_theme("dark-blue")
 class AttendanceBotGUI(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("P.R.O.X.Y. - Centro de Comando")
-        self.geometry("850x500")
+        self.title("Attendance Assistant")
+        self.geometry("900x540")
         self.resizable(False, False)
 
         self.bot_process = None
         self.log_file = config.LOGS_DIR / "attendance_bot.log"
-        self.schedule_dest = config.BASE_DIR / "src" / "attendance_assistant" / "storage" / "horario.json"
-        self.pid_file = config.BASE_DIR / "state" / "proxy_bot.pid" 
+        self.schedule_dest = config.SCHEDULE_FILE
+        self.pid_file = config.PID_FILE
         self.env_file = config.BASE_DIR / ".env"
 
         self._build_ui()
@@ -52,14 +52,14 @@ class AttendanceBotGUI(ctk.CTk):
             return
 
         self.settings_win = ctk.CTkToplevel(self)
-        self.settings_win.title("Inicialización de P.R.O.X.Y." if force_setup else "Ajustes de Credenciales")
-        self.settings_win.geometry("400x480")
+        self.settings_win.title("Configurar Attendance Assistant" if force_setup else "Ajustes de Credenciales")
+        self.settings_win.geometry("430x600")
         self.settings_win.resizable(False, False)
         self.settings_win.transient(self) # Se mantiene por encima de la principal
         self.settings_win.grab_set() # Bloquea la ventana de atrás hasta que termine
 
         # Título
-        title_lbl = ctk.CTkLabel(self.settings_win, text="🔐 Credenciales de Operador", font=ctk.CTkFont(size=20, weight="bold"))
+        title_lbl = ctk.CTkLabel(self.settings_win, text="🔐 Credenciales de acceso", font=ctk.CTkFont(size=20, weight="bold"))
         title_lbl.pack(pady=(20, 10))
         
         desc_lbl = ctk.CTkLabel(self.settings_win, text="Configura tu acceso a UAM Virtual y WhatsApp.", text_color="gray")
@@ -69,6 +69,8 @@ class AttendanceBotGUI(ctk.CTk):
         current_cif = ""
         current_pass = ""
         current_phone = ""
+        current_semester_start = ""
+        current_semester_end = ""
         if self.env_file.exists():
             try:
                 with open(self.env_file, "r", encoding="utf-8") as f:
@@ -78,6 +80,8 @@ class AttendanceBotGUI(ctk.CTk):
                         if line.startswith("WA_PHONE_NUMBER="): 
                             full_phone = line.split("=")[1].strip().strip('"')
                             if full_phone.startswith("505"): current_phone = full_phone[3:]
+                        if line.startswith("SEMESTER_START="): current_semester_start = line.split("=")[1].strip().strip('"')
+                        if line.startswith("SEMESTER_END="): current_semester_end = line.split("=")[1].strip().strip('"')
             except Exception: pass
 
         # --- CAMPO CIF ---
@@ -96,7 +100,7 @@ class AttendanceBotGUI(ctk.CTk):
         ctk.CTkLabel(self.settings_win, text="WhatsApp de Notificaciones:", anchor="w").pack(fill="x", padx=40)
         
         phone_frame = ctk.CTkFrame(self.settings_win, fg_color="transparent")
-        phone_frame.pack(fill="x", padx=40, pady=(0, 25))
+        phone_frame.pack(fill="x", padx=40, pady=(0, 15))
         
         # Etiqueta con bandera y código de Nicaragua
         prefix_lbl = ctk.CTkLabel(phone_frame, text="🇳🇮 +505", font=ctk.CTkFont(weight="bold"), fg_color="#1f538d", corner_radius=5)
@@ -106,11 +110,23 @@ class AttendanceBotGUI(ctk.CTk):
         phone_entry.insert(0, current_phone)
         phone_entry.pack(side="left", fill="x", expand=True)
 
+        ctk.CTkLabel(self.settings_win, text="Inicio del semestre (opcional):", anchor="w").pack(fill="x", padx=40)
+        semester_start_entry = ctk.CTkEntry(self.settings_win, placeholder_text="YYYY-MM-DD")
+        semester_start_entry.insert(0, current_semester_start)
+        semester_start_entry.pack(fill="x", padx=40, pady=(0, 12))
+
+        ctk.CTkLabel(self.settings_win, text="Final del semestre (opcional):", anchor="w").pack(fill="x", padx=40)
+        semester_end_entry = ctk.CTkEntry(self.settings_win, placeholder_text="YYYY-MM-DD")
+        semester_end_entry.insert(0, current_semester_end)
+        semester_end_entry.pack(fill="x", padx=40, pady=(0, 18))
+
         # --- FUNCIÓN DE GUARDADO ---
         def save_settings():
             c = cif_entry.get().strip()
             p = pass_entry.get().strip()
             num = phone_entry.get().strip()
+            semester_start = semester_start_entry.get().strip()
+            semester_end = semester_end_entry.get().strip()
             
             if not c or not p or not num:
                 self._write_to_terminal("\n[ERROR] Faltan datos en la configuración.\n")
@@ -127,10 +143,14 @@ BROWSER_TIMEOUT=30000
 
 # Notificaciones
 WA_PHONE_NUMBER="505{num}"
+
+# Resumen web del semestre
+SEMESTER_START="{semester_start}"
+SEMESTER_END="{semester_end}"
 """
             # Guardamos el archivo .env
             self.env_file.write_text(env_content, encoding="utf-8")
-            self._write_to_terminal("\n[P.R.O.X.Y.] Credenciales de Operador actualizadas y encriptadas localmente.\n")
+            self._write_to_terminal("\n[Attendance Assistant] Credenciales actualizadas localmente.\n")
             self.settings_win.destroy()
 
         save_btn = ctk.CTkButton(self.settings_win, text="💾 GUARDAR Y APLICAR", command=save_settings, fg_color="#28a745", hover_color="#218838")
@@ -160,7 +180,7 @@ WA_PHONE_NUMBER="505{num}"
                         self.bot_process = p
                         self.toggle_bot_btn.configure(text="■ DETENER BOT", fg_color="#dc3545", hover_color="#c82333")
                         self.status_label.configure(text="Estado: OPERATIVO", text_color="#28a745")
-                        self._write_to_terminal("\n[SISTEMA] Conexión establecida con el protocolo fantasma.\n")
+                        self._write_to_terminal("\n[SISTEMA] Conexión establecida con el bot en segundo plano.\n")
                         return
                 self.pid_file.unlink(missing_ok=True)
             except Exception:
@@ -170,21 +190,21 @@ WA_PHONE_NUMBER="505{num}"
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        self.sidebar = ctk.CTkFrame(self, width=220, corner_radius=0, fg_color="#111111")
+        self.sidebar = ctk.CTkFrame(self, width=240, corner_radius=0, fg_color="#101828")
         self.sidebar.grid(row=0, column=0, sticky="nsew")
         self.sidebar.grid_rowconfigure(5, weight=1) # Empujamos el estatus hacia abajo
 
-        self.logo_label = ctk.CTkLabel(self.sidebar, text="P.R.O.X.Y.", font=ctk.CTkFont(size=28, weight="bold", slant="italic"))
+        self.logo_label = ctk.CTkLabel(self.sidebar, text="Attendance\nAssistant", font=ctk.CTkFont(size=28, weight="bold"), justify="left")
         self.logo_label.grid(row=0, column=0, padx=20, pady=(30, 5))
         
-        self.subtitle_label = ctk.CTkLabel(self.sidebar, text="Automated Attendance Protocol", font=ctk.CTkFont(size=11), text_color="gray")
+        self.subtitle_label = ctk.CTkLabel(self.sidebar, text="AutoAttendance Bot", font=ctk.CTkFont(size=11), text_color="gray")
         self.subtitle_label.grid(row=1, column=0, padx=20, pady=(0, 40))
 
         # NUEVO BOTÓN: Ajustes
-        self.settings_btn = ctk.CTkButton(self.sidebar, text="⚙️ Ajustes", command=self.open_settings, fg_color="#444444", hover_color="#333333", height=35)
+        self.settings_btn = ctk.CTkButton(self.sidebar, text="⚙️ Ajustes", command=self.open_settings, fg_color="#475467", hover_color="#344054", height=35)
         self.settings_btn.grid(row=2, column=0, padx=20, pady=(0, 15))
 
-        self.upload_btn = ctk.CTkButton(self.sidebar, text="📁 Cargar Horario", command=self.upload_json, fg_color="#1f538d", hover_color="#14375e", height=40)
+        self.upload_btn = ctk.CTkButton(self.sidebar, text="📁 Cargar Horario", command=self.upload_json, fg_color="#2563eb", hover_color="#1d4ed8", height=40)
         self.upload_btn.grid(row=3, column=0, padx=20, pady=10)
 
         self.toggle_bot_btn = ctk.CTkButton(self.sidebar, text="▶ INICIAR BOT", command=self.toggle_bot, fg_color="#28a745", hover_color="#218838", height=40)
@@ -193,15 +213,15 @@ WA_PHONE_NUMBER="505{num}"
         self.status_label = ctk.CTkLabel(self.sidebar, text="Estado: INACTIVO", text_color="#dc3545", font=ctk.CTkFont(weight="bold"))
         self.status_label.grid(row=6, column=0, padx=20, pady=(10, 30), sticky="s")
 
-        self.main_frame = ctk.CTkFrame(self, corner_radius=15, fg_color="#1e1e24")
+        self.main_frame = ctk.CTkFrame(self, corner_radius=18, fg_color="#111827")
         self.main_frame.grid(row=0, column=1, padx=20, pady=20, sticky="nsew")
 
-        self.terminal_label = ctk.CTkLabel(self.main_frame, text="TERMINAL DE SISTEMA", font=ctk.CTkFont(size=12, weight="bold"), text_color="#aaaaaa")
+        self.terminal_label = ctk.CTkLabel(self.main_frame, text="REGISTRO DEL BOT", font=ctk.CTkFont(size=12, weight="bold"), text_color="#aaaaaa")
         self.terminal_label.pack(anchor="w", padx=20, pady=(15, 0))
 
-        self.textbox = ctk.CTkTextbox(self.main_frame, font=ctk.CTkFont(family="Consolas", size=12), fg_color="#0a0a0c", text_color="#00ff00", corner_radius=10)
+        self.textbox = ctk.CTkTextbox(self.main_frame, font=ctk.CTkFont(family="Consolas", size=12), fg_color="#030712", text_color="#86efac", corner_radius=10)
         self.textbox.pack(fill="both", expand=True, padx=20, pady=(10, 20))
-        self.textbox.insert("0.0", "Iniciando subsistemas...\n[P.R.O.X.Y.] Listo para operar.\n")
+        self.textbox.insert("0.0", "Iniciando Attendance Assistant...\n[Sistema] Listo para operar.\n")
         self.textbox.configure(state="disabled")
 
     def upload_json(self):
@@ -212,7 +232,7 @@ WA_PHONE_NUMBER="505{num}"
                 with open(file_path, 'r', encoding='utf-8-sig') as f_in: data = json.load(f_in)
                 if not data or "events" not in data: raise ValueError("Estructura incorrecta.")
                 with open(self.schedule_dest, 'w', encoding='utf-8') as f_out: json.dump(data, f_out, indent=4, ensure_ascii=False)
-                self._write_to_terminal(f"\n[P.R.O.X.Y.] Horario validado y cargado: {Path(file_path).name}\n")
+                self._write_to_terminal(f"\n[Attendance Assistant] Horario validado y cargado: {Path(file_path).name}\n")
             except Exception as e:
                 self._write_to_terminal(f"\n[ERROR] Falla al procesar el horario: {e}\n")
 
@@ -231,22 +251,30 @@ WA_PHONE_NUMBER="505{num}"
             if not getattr(sys, 'frozen', False):
                 script_args.insert(0, str(Path(__file__).resolve()))
                 
-            DETACHED_PROCESS = 0x00000008
-            CREATE_NEW_PROCESS_GROUP = 0x00000200
-            CREATE_NO_WINDOW = 0x08000000
-            
-            p = subprocess.Popen(
-                [executable] + script_args, 
-                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
-            )
+            popen_kwargs = {
+                "stdin": subprocess.DEVNULL,
+                "stdout": subprocess.DEVNULL,
+                "stderr": subprocess.DEVNULL,
+                "cwd": str(config.BASE_DIR),
+            }
+
+            if sys.platform.startswith("win"):
+                popen_kwargs["creationflags"] = (
+                    0x00000008  # DETACHED_PROCESS
+                    | 0x00000200  # CREATE_NEW_PROCESS_GROUP
+                    | 0x08000000  # CREATE_NO_WINDOW
+                )
+            else:
+                popen_kwargs["start_new_session"] = True
+
+            p = subprocess.Popen([executable] + script_args, **popen_kwargs)
             self.bot_process = p
             self.pid_file.parent.mkdir(parents=True, exist_ok=True)
             self.pid_file.write_text(str(p.pid))
             
             self.toggle_bot_btn.configure(text="■ DETENER BOT", fg_color="#dc3545", hover_color="#c82333")
             self.status_label.configure(text="Estado: OPERATIVO", text_color="#28a745")
-            self._write_to_terminal("\n[SISTEMA] Protocolo de vigilancia invisible INICIADO de fondo.\n")
+            self._write_to_terminal("\n[SISTEMA] Bot de asistencia iniciado en segundo plano. Puedes cerrar esta ventana y seguirá activo.\n")
         else:
             try: self.bot_process.terminate()
             except Exception: pass 
@@ -254,7 +282,7 @@ WA_PHONE_NUMBER="505{num}"
             self.pid_file.unlink(missing_ok=True)
             self.toggle_bot_btn.configure(text="▶ INICIAR BOT", fg_color="#28a745", hover_color="#218838")
             self.status_label.configure(text="Estado: INACTIVO", text_color="#dc3545")
-            self._write_to_terminal("\n[SISTEMA] Protocolo de vigilancia DETENIDO.\n")
+            self._write_to_terminal("\n[SISTEMA] Bot de asistencia detenido.\n")
 
     def _write_to_terminal(self, text):
         self.textbox.configure(state="normal")
@@ -277,7 +305,7 @@ WA_PHONE_NUMBER="505{num}"
 
     def on_closing(self):
         if self.bot_process is not None:
-            self._write_to_terminal("\n[SISTEMA] Interfaz cerrada. P.R.O.X.Y. sigue activo de fondo...\n")
+            self._write_to_terminal("\n[SISTEMA] Interfaz cerrada. Attendance Assistant sigue activo en segundo plano...\n")
             self.after(200, self.destroy)
         else:
             self.destroy()

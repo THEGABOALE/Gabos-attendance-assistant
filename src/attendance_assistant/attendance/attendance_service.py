@@ -1,8 +1,10 @@
 import random
+from datetime import datetime
 from playwright.async_api import Page
 from attendance_assistant.core.logger import logger
 from attendance_assistant.browser.selectors import MoodleSelectors
 from attendance_assistant.whatsapp.whatsapp_service import WhatsappService
+from attendance_assistant.core.reporting import record_attendance_event, screenshots_dir_for
 
 class AttendanceService:
     def __init__(self, page: Page):
@@ -12,6 +14,22 @@ class AttendanceService:
         """Simula el tiempo de reacción y lectura de un estudiante real."""
         delay = random.randint(min_ms, max_ms)
         await self.page.wait_for_timeout(delay)
+
+
+    async def _capture_attendance_receipt(self, course_name: str):
+        """Guarda una captura temporal del resultado para el resumen diario."""
+        try:
+            safe_name = "".join(ch if ch.isalnum() else "_" for ch in course_name).strip("_")[:70]
+            timestamp = datetime.now().strftime("%H%M%S")
+            screenshot_dir = screenshots_dir_for()
+            screenshot_dir.mkdir(parents=True, exist_ok=True)
+            screenshot_path = screenshot_dir / f"{timestamp}_{safe_name or 'attendance'}.png"
+            await self.page.screenshot(path=screenshot_path, full_page=True)
+            logger.info(f"Captura de confirmación guardada: {screenshot_path.name}")
+            return screenshot_path
+        except Exception as exc:
+            logger.warning(f"No se pudo guardar la captura de confirmación: {exc}")
+            return None
 
     async def check_course_attendance(self, course_name: str, course_url: str) -> bool:
         # Política de Reintentos (3 intentos antes de rendirse)
@@ -81,9 +99,21 @@ class AttendanceService:
                         await self.page.wait_for_load_state("networkidle")
 
                         logger.success(f"¡Asistencia de {course_name} marcada exitosamente en la plataforma!")
-                        
+
+                        screenshot_path = await self._capture_attendance_receipt(course_name)
+                        record_attendance_event(
+                            course_name=course_name,
+                            status="marked",
+                            message="Asistencia marcada correctamente en Moodle.",
+                            screenshot_path=screenshot_path,
+                        )
+
                         wa_service = WhatsappService()
-                        alerta = f"Asistente de Asistencias\n\nAsistencia de *{course_name}* puesta. Puede verificar en la plataforma."
+                        alerta = (
+                            "Asistente de Asistencias\n\n"
+                            f"Asistencia de *{course_name}* puesta. "
+                            "La captura quedó guardada para el resumen web."
+                        )
                         await wa_service.send_message(alerta)
                         
                         return True

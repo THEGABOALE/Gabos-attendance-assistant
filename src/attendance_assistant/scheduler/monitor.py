@@ -11,8 +11,9 @@ if sys.path[0] != src_path:
 from attendance_assistant.config.settings import config
 from attendance_assistant.main import main as run_scanner
 from attendance_assistant.utils.time_utils import load_schedule, get_active_classes
+from attendance_assistant.core.reporting import cleanup_old_screenshots, record_window_result
 
-SCHEDULE_PATH = config.BASE_DIR / "src" / "attendance_assistant" / "storage" / "horario.json"
+SCHEDULE_PATH = config.SCHEDULE_FILE
 HEARTBEAT_SECONDS = 60 
 
 async def run_smart_scheduler():
@@ -27,6 +28,7 @@ async def run_smart_scheduler():
             # Revisamos qué día es hoy para limpiar la memoria si cambió el día
             today_str = datetime.now().strftime("%Y-%m-%d")
             if today_str not in completed_today:
+                cleanup_old_screenshots()
                 completed_today = {today_str: []}
 
             eventos = load_schedule(SCHEDULE_PATH)
@@ -41,6 +43,7 @@ async def run_smart_scheduler():
                 
                 # Ejecutamos el bot y esperamos la lista de lo que logró marcar
                 marked = await run_scanner(target_classes=clases_pendientes)
+                record_window_result(clases_pendientes, marked or [])
                 
                 # Si logró marcar algo, lo agregamos a la memoria
                 if marked:
