@@ -1,3 +1,4 @@
+import os
 import sys
 import asyncio
 from datetime import datetime
@@ -11,11 +12,15 @@ if sys.path[0] != src_path:
 from attendance_assistant.config.settings import config
 from attendance_assistant.main import main as run_scanner
 from attendance_assistant.utils.time_utils import load_schedule, get_active_classes
+from attendance_assistant.core.reporting import record_window_result
 
-SCHEDULE_PATH = config.BASE_DIR / "src" / "attendance_assistant" / "storage" / "horario.json"
+SCHEDULE_PATH = config.SCHEDULE_FILE
 HEARTBEAT_SECONDS = 60 
 
 async def run_smart_scheduler():
+    config.PID_FILE.parent.mkdir(parents=True, exist_ok=True)
+    config.PID_FILE.write_text(str(os.getpid()), encoding="utf-8")
+
     logger.info("Servicio Smart Scheduler inicializado. (Latido cada 60s)")
     logger.info("Reglas: 10 mins antes -> 30 mins después. Solo chequea si no se ha marcado hoy.")
     
@@ -41,6 +46,7 @@ async def run_smart_scheduler():
                 
                 # Ejecutamos el bot y esperamos la lista de lo que logró marcar
                 marked = await run_scanner(target_classes=clases_pendientes)
+                record_window_result(clases_pendientes, marked or [])
                 
                 # Si logró marcar algo, lo agregamos a la memoria
                 if marked:
@@ -59,3 +65,5 @@ if __name__ == "__main__":
         asyncio.run(run_smart_scheduler())
     except KeyboardInterrupt:
         logger.info("Servicio Smart Scheduler interrumpido manualmente.")
+    finally:
+        config.PID_FILE.unlink(missing_ok=True)

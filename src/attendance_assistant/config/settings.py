@@ -3,42 +3,40 @@ from pathlib import Path
 from dotenv import load_dotenv
 from pydantic import BaseModel
 
-# Cargamos las variables desde el archivo .env
-load_dotenv()
-
-# Detectamos la ruta base del proyecto en una variable temporal
+# Cargamos las variables desde el archivo .env del proyecto cuando existe
 BASE_DIR_PATH = Path(__file__).resolve().parent.parent.parent.parent
+load_dotenv(BASE_DIR_PATH / ".env")
+
 
 class Settings(BaseModel):
     """
     Modelo centralizado para la configuración del bot.
     Valida y expone las variables de entorno para todo el proyecto.
     """
-    # 👇 Exponemos BASE_DIR como atributo de la clase 👇
     BASE_DIR: Path = BASE_DIR_PATH
 
-    # URL base corregida según tus enlaces reales
     UAM_BASE_URL: str = "https://uamvirtual.uam.edu.ni" 
     
-    # Credenciales leídas del .env
     USERNAME: str = os.getenv("UAM_USERNAME", "")
     PASSWORD: str = os.getenv("UAM_PASSWORD", "")
     
-    # Playwright
-    HEADLESS: bool = os.getenv("HEADLESS_MODE", "False").lower() == "true"
+    HEADLESS: bool = os.getenv("HEADLESS_MODE", "False").strip().lower() == "true"
     TIMEOUT: int = int(os.getenv("BROWSER_TIMEOUT", 30000))
     
-    # Rutas del sistema 
     STATE_FILE: Path = BASE_DIR_PATH / "state" / "state.json"
+    PID_FILE: Path = BASE_DIR_PATH / "state" / "attendance_assistant.pid"
+    REPORT_FILE: Path = BASE_DIR_PATH / "state" / "attendance_report.json"
+    SCHEDULE_FILE: Path = BASE_DIR_PATH / "src"/ "attendance_assistant" / "storage" / "horario.json"
     LOGS_DIR: Path = BASE_DIR_PATH / "logs"
-    SCREENSHOTS_DIR: Path = BASE_DIR_PATH / "screenshots"
 
-    # Credenciales para WhatsApp (Nativo)
     WA_PHONE_NUMBER: str = os.getenv("WA_PHONE_NUMBER", "")
 
-# Instanciamos la configuración
-config = Settings()
+    @property
+    def has_required_credentials(self) -> bool:
+        return bool(self.USERNAME and self.PASSWORD)
+    
+    def validate_required_credentials(self) -> None:
+        if not self.has_required_credentials:
+            raise ValueError("ERROR: Faltan credenciales de la UAM en el archivo .env")
 
-# Validación de seguridad
-if not config.USERNAME or not config.PASSWORD:
-    raise ValueError("ERROR: Faltan credenciales de la UAM en el archivo .env")
+config = Settings()

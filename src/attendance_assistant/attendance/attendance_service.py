@@ -1,8 +1,10 @@
 import random
+from datetime import datetime
 from playwright.async_api import Page
 from attendance_assistant.core.logger import logger
 from attendance_assistant.browser.selectors import MoodleSelectors
 from attendance_assistant.whatsapp.whatsapp_service import WhatsappService
+from attendance_assistant.core.reporting import record_attendance_event
 
 class AttendanceService:
     def __init__(self, page: Page):
@@ -12,7 +14,7 @@ class AttendanceService:
         """Simula el tiempo de reacción y lectura de un estudiante real."""
         delay = random.randint(min_ms, max_ms)
         await self.page.wait_for_timeout(delay)
-
+    
     async def check_course_attendance(self, course_name: str, course_url: str) -> bool:
         # Política de Reintentos (3 intentos antes de rendirse)
         max_retries = 3
@@ -82,8 +84,18 @@ class AttendanceService:
 
                         logger.success(f"¡Asistencia de {course_name} marcada exitosamente en la plataforma!")
                         
+                        record_attendance_event(
+                            course_name,
+                            "marked",
+                            "Asistencia marcada correctamente en Moodle.",
+                        )
+
                         wa_service = WhatsappService()
-                        alerta = f"Asistente de Asistencias\n\nAsistencia de *{course_name}* puesta. Puede verificar en la plataforma."
+                        hora = datetime.now().strftime("%H:%M")
+                        alerta = (
+                            "Asistente de Asistencias\n\n"
+                            f"✅ Asistencia de *{course_name}* puesta a las {hora}."
+                        )
                         await wa_service.send_message(alerta)
                         
                         return True
