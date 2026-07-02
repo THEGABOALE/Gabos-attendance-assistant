@@ -31,11 +31,8 @@ flowchart LR
 ## Inicio rápido
 
 ```powershell
-# 1. Entorno e instalación (una sola vez)
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-python -m playwright install chromium
+# 1. Instalación automática (crea el entorno e instala todo)
+powershell -ExecutionPolicy Bypass -File scripts\bootstrap.ps1
 
 # 2. Configura tus datos y tu horario
 .\gabo.cmd config                       # credenciales UAM + WhatsApp

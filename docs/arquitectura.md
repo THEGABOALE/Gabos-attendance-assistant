@@ -25,6 +25,7 @@ Todo se controla con la **CLI** y el **autoarranque**; no hay ventanas ni servid
 attendance-assintant/
 ├─ gabo / gabo.cmd            # Lanzadores de la CLI (Unix / Windows)
 ├─ scripts/
+│  ├─ bootstrap.ps1           # Instalación automática (entorno + dependencias)
 │  ├─ service.py              # Punto de entrada en segundo plano (pythonw)
 │  ├─ install_autostart.ps1   # Instala el arranque al iniciar sesión
 │  └─ uninstall_autostart.ps1 # Lo quita

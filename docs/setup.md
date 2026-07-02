@@ -20,6 +20,15 @@ Esta guía deja **Attendance Assistant** funcionando de punta a punta: marcar as
 
 ## 2. Instalación
 
+**Opción rápida (recomendada):** un solo comando crea el entorno virtual e instala todo (dependencias + navegador).
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\bootstrap.ps1
+```
+
+<details>
+<summary>Instalación manual paso a paso</summary>
+
 Desde la raíz del repositorio, en **PowerShell**:
 
 ```powershell
@@ -42,6 +51,8 @@ source .venv/bin/activate
 pip install -r requirements.txt
 python -m playwright install chromium
 ```
+
+</details>
 
 ---
 
