@@ -58,7 +58,10 @@ def start() -> int:
         return 0
 
     service = config.BASE_DIR / "scripts" / "service.py"
-    cmd = [sys.executable, str(service)]
+    # Usamos pythonw.exe (sin consola) para que NO se abra ninguna ventana en Windows.
+    pythonw = Path(sys.executable).with_name("pythonw.exe")
+    launcher = str(pythonw) if pythonw.exists() else sys.executable
+    cmd = [launcher, str(service)]
     kwargs = {
         "cwd": str(config.BASE_DIR),
         "stdin": subprocess.DEVNULL,
