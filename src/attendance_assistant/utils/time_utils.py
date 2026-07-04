@@ -3,6 +3,12 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from attendance_assistant.core.logger import logger
 
+# Ventana de asistencia: abre 10 min antes de empezar y se mantiene abierta
+# durante TODA la clase, hasta MINUTOS_GRACIA después del fin (por si el profe
+# marca la asistencia tarde).
+MINUTOS_ANTES = 10
+MINUTOS_GRACIA = 15
+
 def load_schedule(filepath: Path) -> list:
     """Carga y parsea el archivo de horario exportado con tolerancia a fallos."""
     try:
@@ -43,14 +49,23 @@ def get_active_classes(events: list) -> list:
             continue
             
         try:
-            # 2. Extraer la hora de inicio (Ej. "10:00")
-            hora_inicio_str = evento.get("timeRange", [])[0]
-            hora_inicio_obj = datetime.strptime(hora_inicio_str, "%H:%M").time()
+            rango = evento.get("timeRange", [])
+
+            # 2. Hora de inicio (Ej. "10:00")
+            hora_inicio_obj = datetime.strptime(rango[0], "%H:%M").time()
             fecha_hora_inicio = datetime.combine(now.date(), hora_inicio_obj)
-            
-            # 3. Definir la ventana: 10 mins antes de empezar, hasta 30 mins después
-            ventana_apertura = fecha_hora_inicio - timedelta(minutes=10)
-            ventana_cierre = fecha_hora_inicio + timedelta(minutes=30)
+
+            # 3. Hora de fin (Ej. "12:50"); si falta o es inválida, asumimos 3 horas
+            try:
+                hora_fin_obj = datetime.strptime(rango[1], "%H:%M").time()
+                fecha_hora_fin = datetime.combine(now.date(), hora_fin_obj)
+            except (IndexError, ValueError):
+                fecha_hora_fin = fecha_hora_inicio + timedelta(hours=3)
+
+            # 4. La ventana abre 10 min antes y sigue ACTIVA durante toda la clase,
+            #    hasta el fin + un margen de gracia (por si marcan la asistencia tarde)
+            ventana_apertura = fecha_hora_inicio - timedelta(minutes=MINUTOS_ANTES)
+            ventana_cierre = fecha_hora_fin + timedelta(minutes=MINUTOS_GRACIA)
             
             if ventana_apertura <= now <= ventana_cierre:
                 clases_activas.append(evento.get("title"))

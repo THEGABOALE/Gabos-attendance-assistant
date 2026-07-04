@@ -41,7 +41,7 @@ async def run_smart_scheduler():
     config.PID_FILE.write_text(str(os.getpid()), encoding="utf-8")
 
     logger.info("Servicio Smart Scheduler inicializado. (Latido cada 60s)")
-    logger.info("Reglas: 10 mins antes -> 30 mins después. Solo chequea si no se ha marcado hoy.")
+    logger.info("Reglas: desde 10 min antes y durante toda la clase. Solo chequea si no se ha marcado hoy.")
     
     # Memoria a corto plazo del bot
     completed_today = {}

@@ -6,14 +6,25 @@ Este documento explica la **lógica de cada parte** del proyecto: qué hace, por
 
 ## Alcance del proyecto
 
-El proyecto se mantiene deliberadamente **enfocado en su objetivo real**: marcar asistencia, avisar y correr solo.
+El proyecto se mantiene **enfocado en su objetivo real**: marcar asistencia, avisar y correr solo.
 
-| Incluido | Fuera de alcance (a propósito) |
+**Lo que hace:**
+
+- Marcado automático de asistencia en Moodle.
+- Aviso por WhatsApp, tanto al marcar como al fallar.
+- Ejecución en segundo plano al iniciar Windows.
+- Control por CLI (`gabo`) e historial simple de eventos.
+
+### Funciones que se consideraron y se descartaron
+
+Durante el desarrollo se llegaron a construir o intentar varias funciones que finalmente se quitaron, para no cargar el proyecto con código que no aportaba al objetivo:
+
+| Función | Por qué se descartó |
 | --- | --- |
-| Marcado automático de asistencia en Moodle | Interfaz gráfica de escritorio |
-| Aviso por WhatsApp | Dashboard web / capturas de pantalla |
-| Ejecución en segundo plano al iniciar Windows | Lectura de horario desde PDF/imagen |
-| Control por CLI (`gabo`) + historial simple | Instalación en el PATH del sistema |
+| **Interfaz gráfica de escritorio** | Se llegó a construir, pero obligaba a abrir una ventana y darle a un botón, lo que contradice el objetivo de correr invisible en segundo plano. El autoarranque + la CLI lo cubren mejor. |
+| **Dashboard web + capturas de pantalla** | Duplicaba lo que ya confirma el aviso de WhatsApp, a cambio de mucho más código que mantener (servidor HTTP, cálculo de porcentajes, limpieza de carpetas). |
+| **Lectura del horario desde PDF/imagen** | Se intentó, pero el parseo salía deforme e inconsistente. El JSON exportado es fiable y solo se carga una vez por semestre. |
+| **Instalación en el PATH del sistema** (`install-command`) | Un lujo innecesario para una herramienta de un solo usuario en su propia máquina. |
 
 Todo se controla con la **CLI** y el **autoarranque**; no hay ventanas ni servidores que mantener.
 
@@ -105,10 +116,10 @@ Es el proceso que vive todo el día. Cada **60 segundos** (`HEARTBEAT_SECONDS`):
 `get_active_classes()` compara la hora del sistema con cada evento del horario del **día actual** (`day` = 0 para lunes). La ventana de cada clase es:
 
 ```
-apertura = hora_inicio − 10 min      cierre = hora_inicio + 30 min
+apertura = hora_inicio − 10 min      cierre = hora_fin + 15 min
 ```
 
-Si "ahora" cae dentro de ese rango, la materia se considera **activa**. `load_schedule()` lee el JSON con tolerancia a fallos (archivo vacío, BOM de Windows, JSON corrupto).
+La ventana se mantiene abierta **durante toda la clase** (no solo al inicio): algunos profesores abren la asistencia tarde, así que el bot sigue revisando cada 60 s hasta que la marca o hasta que la clase termina. Si "ahora" cae dentro de ese rango, la materia se considera **activa**. `load_schedule()` lee el JSON con tolerancia a fallos (archivo vacío, BOM de Windows, JSON corrupto).
 
 ### `browser/browser_manager.py` — el navegador
 Controla el ciclo de vida de Playwright/Chromium. Su truco clave: **reutiliza la sesión** guardada en `state/state.json`, así no tiene que loguearse desde cero cada vez. Aplica un "disfraz" (user-agent y viewport realistas) y respeta `HEADLESS_MODE`.
@@ -149,7 +160,7 @@ La única superficie de control. Traduce cada comando (`config`, `schedule`, `wh
 | Decisión | Razón |
 | --- | --- |
 | **Reutilizar la sesión** (`state.json`) | Menos logins = menos fricción y menos sospecha de automatización. |
-| **Chequear cada 60 s pero actuar solo en la ventana** | Bajo consumo: el navegador solo se abre cuando de verdad hay clase. |
+| **Chequear cada 60 s durante toda la clase** | Así no se pierde la asistencia aunque el profe la abra tarde; fuera del horario de clase el bot no abre el navegador. |
 | **Selectores centralizados** (`selectors.py`) | Si Moodle cambia el HTML, se arregla en un solo lugar. |
 | **Autoarranque por carpeta de Inicio** | La cuenta de Windows suele ser estándar (sin admin); este método no lo requiere. |
 | **Historial en JSON simple, sin dashboard** | El aviso de WhatsApp ya confirma en el momento; el historial es solo respaldo. |
