@@ -7,6 +7,7 @@
   <img alt="Playwright" src="https://img.shields.io/badge/Playwright-1.60-2EAD33?logo=playwright&logoColor=white">
   <img alt="Windows" src="https://img.shields.io/badge/Windows-10%2F11-0078D6?logo=windows&logoColor=white">
   <img alt="Estado" src="https://img.shields.io/badge/estado-funcional-brightgreen">
+  <img alt="Licencia" src="https://img.shields.io/badge/licencia-MIT-blue">
 </p>
 
 ---
@@ -69,3 +70,7 @@ powershell -ExecutionPolicy Bypass -File scripts\install_autostart.ps1
 ## Aviso
 
 Este proyecto automatiza tu propia cuenta con tus credenciales. Depende del HTML actual de UAM Virtual: si Moodle cambia, puede requerir ajustes. Úsalo con criterio y responsabilidad.
+
+## Licencia
+
+Distribuido bajo la licencia **MIT**: uso, copia y modificación libres, siempre que se conserve el aviso de copyright y el crédito al autor. Ver [LICENSE](LICENSE).
