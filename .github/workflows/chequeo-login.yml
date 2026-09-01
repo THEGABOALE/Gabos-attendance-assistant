@@ -1,0 +1,93 @@
+# Chequeo semanal de login a UAM Virtual, sin marcar nada.
+#
+# Corre el domingo en la noche (antes de la primera clase de la semana) para
+# avisarte con tiempo si las credenciales fallaron o Moodle rechaza el acceso,
+# en vez de enterarte hasta que ya empezaron las clases del lunes. Si el login
+# funciona, no manda nada — no hace falta confirmar cada semana que va bien.
+name: Chequeo de login UAM
+
+on:
+  workflow_dispatch:
+  # BEGIN:AUTO-CRON
+  # Generado por `gabo workflow`: domingo 20:00 (America/Managua) -> UTC.
+  # No editar a mano: se sobrescribe al regenerar.
+  schedule:
+    - cron: "0 2 * 8-12 1"
+  # END:AUTO-CRON
+
+permissions:
+  contents: read
+
+concurrency:
+  group: asistencia-uam
+  cancel-in-progress: false
+
+jobs:
+  login-check:
+    if: github.repository == 'THEGABOALE/Gabos-attendance-assistant'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      TZ: America/Managua
+      APP_TIMEZONE: America/Managua
+      PYTHONPATH: ${{ github.workspace }}/src
+      HEADLESS_MODE: "True"
+      BROWSER_TIMEOUT: "45000"
+      UAM_USERNAME: ${{ secrets.UAM_USERNAME }}
+      UAM_PASSWORD: ${{ secrets.UAM_PASSWORD }}
+      NOTIFIER: ${{ vars.NOTIFIER || 'callmebot' }}
+      CALLMEBOT_PHONE: ${{ secrets.CALLMEBOT_PHONE }}
+      CALLMEBOT_APIKEY: ${{ secrets.CALLMEBOT_APIKEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install --no-cache-dir -r requirements.txt
+
+      - name: Cachear el navegador de Playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+
+      - name: Instalar Chromium
+        run: python -m playwright install --with-deps chromium
+
+      # Comparte la misma sesión que el workflow principal: si ya hay cookies
+      # válidas, este chequeo también las reutiliza en vez de loguear de cero.
+      - name: Restaurar sesión de Moodle en caché
+        uses: actions/cache@v4
+        with:
+          path: state/state.json
+          key: moodle-session-${{ github.run_id }}
+          restore-keys: |
+            moodle-session-
+
+      - name: Verificar login
+        id: chequeo
+        run: python -m attendance_assistant.cli login-check
+
+      - name: Avisar si algo falló fuera del chequeo
+        # El propio "login-check" ya avisa por WhatsApp si el login falla.
+        # Esto es la red de respaldo para lo que pasa ANTES de llegar ahí
+        # (dependencias, Chromium, etc.), donde nadie más se entera.
+        if: failure() && steps.chequeo.outcome != 'failure'
+        env:
+          MSG: >-
+            Asistente de Asistencias
+
+            ⚠️ El chequeo semanal de login no pudo ni siquiera arrancar
+            (falló antes de intentar el login). Revisa el log:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -n "$CALLMEBOT_PHONE" ] && [ -n "$CALLMEBOT_APIKEY" ]; then
+            ENCODED=$(python3 -c "import urllib.parse, os; print(urllib.parse.quote(os.environ['MSG']))")
+            curl -s "https://api.callmebot.com/whatsapp.php?phone=$CALLMEBOT_PHONE&text=$ENCODED&apikey=$CALLMEBOT_APIKEY" > /dev/null || true
+          fi

@@ -1,0 +1,187 @@
+# Marca la asistencia en UAM Virtual cuando tu PC está apagada.
+#
+# Este workflow es el RESPALDO del servicio local de Windows: hace exactamente
+# una pasada por ejecución (`gabo tick`) y se apaga. Si el servicio local ya
+# marcó la asistencia, Moodle deja de mostrar el enlace de envío y esta pasada
+# simplemente no encuentra nada que hacer: los dos pueden convivir sin chocar.
+#
+# Los horarios de abajo se generan con `gabo workflow` a partir de tu
+# horario.json: solo se levanta un runner durante tus ventanas de clase reales.
+name: Asistencia UAM
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_all:
+        description: "Revisar TODAS las materias, ignorando la ventana del horario"
+        type: boolean
+        default: false
+  # BEGIN:AUTO-CRON
+  # Generado por `gabo workflow` desde horario.json (America/Managua -> UTC).
+  # No editar a mano: se sobrescribe al regenerar.
+  schedule:
+    - cron: "50 15 * 8-12 1"
+    - cron: "0,10,20,30,40,50 16 * 8-12 1"
+    - cron: "0,10,20,30,40,50 17 * 8-12 1"
+    - cron: "0,10,20,30,40,50 18 * 8-12 1"
+    - cron: "0 19 * 8-12 1"
+    - cron: "40,50 23 * 8-12 1"
+    - cron: "0,10,20,30,40,50 0 * 8-12 2"
+    - cron: "0,10,20,30,40,50 1 * 8-12 2"
+    - cron: "0,10,20,30,40,50 2 * 8-12 2"
+    - cron: "50 15 * 8-12 2"
+    - cron: "0,10,20,30,40,50 16 * 8-12 2"
+    - cron: "0,10,20,30,40,50 17 * 8-12 2"
+    - cron: "0,10,20,30,40,50 18 * 8-12 2"
+    - cron: "0,10,20,30,40,50 19 * 8-12 2"
+    - cron: "0,10,20,30,40,50 20 * 8-12 2"
+    - cron: "0,10,20,30,40,50 21 * 8-12 2"
+    - cron: "0 22 * 8-12 2"
+    - cron: "50 0 * 8-12 3"
+    - cron: "0,10,20,30,40,50 1 * 8-12 3"
+    - cron: "0,10,20,30,40,50 2 * 8-12 3"
+    - cron: "0,10,20,30 3 * 8-12 3"
+    - cron: "50 18 * 8-12 3"
+    - cron: "0,10,20,30,40,50 19 * 8-12 3"
+    - cron: "0,10,20,30,40,50 20 * 8-12 3"
+    - cron: "0,10,20,30,40,50 21 * 8-12 3"
+    - cron: "0 22 * 8-12 3"
+    - cron: "30,40,50 0 * 8-12 4"
+    - cron: "0,10,20,30,40,50 1 * 8-12 4"
+    - cron: "0,10,20,30,40,50 2 * 8-12 4"
+    - cron: "50 15 * 8-12 4"
+    - cron: "0,10,20,30,40,50 16 * 8-12 4"
+    - cron: "0,10,20,30,40,50 17 * 8-12 4"
+    - cron: "0,10,20,30,40,50 18 * 8-12 4"
+    - cron: "0,10,20,30,40,50 19 * 8-12 4"
+    - cron: "0,10,20,30,40,50 20 * 8-12 4"
+    - cron: "0,10,20,30,40,50 21 * 8-12 4"
+    - cron: "0,10,20,30,40,50 22 * 8-12 4"
+    - cron: "0,10,20,30,40,50 23 * 8-12 4"
+    - cron: "0,10,20,30,40,50 0 * 8-12 5"
+    - cron: "50 21 * 8-12 5"
+    - cron: "0,10,20,30,40,50 22 * 8-12 5"
+    - cron: "0,10,20,30,40,50 23 * 8-12 5"
+    - cron: "0,10,20,30,40,50 0 * 8-12 6"
+  # END:AUTO-CRON
+
+# Necesario para guardar el historial de asistencias de vuelta en el repo.
+permissions:
+  contents: write
+
+# Nunca dos pasadas a la vez sobre la misma cuenta de Moodle.
+concurrency:
+  group: asistencia-uam
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    # Un fork no tiene tus credenciales: que no gaste ejecuciones para nada.
+    if: github.repository == 'THEGABOALE/Gabos-attendance-assistant'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      # Sin esto el runner razonaría en UTC y se equivocaría de hora Y de día.
+      TZ: America/Managua
+      APP_TIMEZONE: America/Managua
+      # Rango del semestre: fuera de estas fechas la pasada sale sin hacer nada.
+      # Se pueden cambiar sin tocar el código con las variables del repositorio.
+      SEMESTER_START: ${{ vars.SEMESTER_START || '2026-08-24' }}
+      SEMESTER_END: ${{ vars.SEMESTER_END || '2026-12-07' }}
+      PYTHONPATH: ${{ github.workspace }}/src
+      HEADLESS_MODE: "True"
+      BROWSER_TIMEOUT: "45000"
+      # El `state/` local es efímero y está en .gitignore: el historial vive
+      # en una carpeta versionada para que sobreviva entre ejecuciones.
+      ATTENDANCE_REPORT_FILE: ${{ github.workspace }}/history/attendance_report.json
+      UAM_USERNAME: ${{ secrets.UAM_USERNAME }}
+      UAM_PASSWORD: ${{ secrets.UAM_PASSWORD }}
+      # Canal de aviso: "callmebot" (WhatsApp por API) o "none".
+      NOTIFIER: ${{ vars.NOTIFIER || 'callmebot' }}
+      CALLMEBOT_PHONE: ${{ secrets.CALLMEBOT_PHONE }}
+      CALLMEBOT_APIKEY: ${{ secrets.CALLMEBOT_APIKEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install --no-cache-dir -r requirements.txt
+
+      - name: Cachear el navegador de Playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+
+      - name: Instalar Chromium
+        run: python -m playwright install --with-deps chromium
+
+      # Sin esto, cada ejecución en la nube haría login desde cero (a
+      # diferencia de tu PC, que reutiliza `state/state.json`). La key trae el
+      # run_id para que SIEMPRE se guarde una copia nueva al final; el
+      # `restore-keys` recupera la más reciente al empezar. Esto vive en el
+      # almacenamiento de Actions, no en el repositorio: no aparece en el
+      # historial de git ni es visible navegando el repo público.
+      - name: Restaurar sesión de Moodle en caché
+        uses: actions/cache@v4
+        with:
+          path: state/state.json
+          key: moodle-session-${{ github.run_id }}
+          restore-keys: |
+            moodle-session-
+
+      - name: Marcar asistencia (una pasada)
+        id: tick
+        run: >
+          python -m attendance_assistant.cli tick
+          ${{ inputs.force_all && '--all' || '' }}
+
+      - name: Guardar el historial en el repo
+        # Corre aunque la pasada falle: el registro del error también importa.
+        if: always()
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add history/attendance_report.json 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "Sin cambios en el historial."
+            exit 0
+          fi
+          git commit -m "chore: historial de asistencia $(date +'%Y-%m-%d %H:%M')"
+          # Otra pasada pudo haber empujado mientras tanto.
+          git pull --rebase --autostash origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Guardar el log cuando algo falla
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: log-asistencia-${{ github.run_id }}
+          path: logs/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Avisar si algo falló fuera del escaneo
+        # "gabo tick" ya avisa por WhatsApp cuando el escaneo o la
+        # configuración fallan (steps.tick.outcome == 'failure'). Esto es la
+        # red de respaldo para lo que pasa AFUERA de eso — dependencias,
+        # Chromium, o el propio commit del historial — donde nadie se entera.
+        if: failure() && steps.tick.outcome != 'failure'
+        env:
+          MSG: >-
+            Asistente de Asistencias
+
+            ⚠️ La ejecución automática en GitHub Actions falló antes de
+            terminar (no fue el escaneo de Moodle). Revisa el log:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -n "$CALLMEBOT_PHONE" ] && [ -n "$CALLMEBOT_APIKEY" ]; then
+            ENCODED=$(python3 -c "import urllib.parse, os; print(urllib.parse.quote(os.environ['MSG']))")
+            curl -s "https://api.callmebot.com/whatsapp.php?phone=$CALLMEBOT_PHONE&text=$ENCODED&apikey=$CALLMEBOT_APIKEY" > /dev/null || true
+          fi
