@@ -102,61 +102,114 @@ def stop() -> int:
 #  Configuración del .env
 # --------------------------------------------------------------------------- #
 ENV_TEMPLATE = """# Credenciales de UAM Virtual
-UAM_USERNAME="{user}"
-UAM_PASSWORD="{password}"
+UAM_USERNAME="{UAM_USERNAME}"
+UAM_PASSWORD="{UAM_PASSWORD}"
+
+# Horario
+APP_TIMEZONE="{APP_TIMEZONE}"
+SEMESTER_START="{SEMESTER_START}"
+SEMESTER_END="{SEMESTER_END}"
 
 # Navegador (Playwright)
-HEADLESS_MODE={headless}
-BROWSER_TIMEOUT={timeout}
+HEADLESS_MODE={HEADLESS_MODE}
+BROWSER_TIMEOUT={BROWSER_TIMEOUT}
 
-# Notificaciones por WhatsApp
-WA_PHONE_NUMBER="{phone}"
+# Notificaciones
+NOTIFIER="{NOTIFIER}"
+WA_PHONE_NUMBER="{WA_PHONE_NUMBER}"
+CALLMEBOT_PHONE="{CALLMEBOT_PHONE}"
+CALLMEBOT_APIKEY="{CALLMEBOT_APIKEY}"
 """
+
+# Valores por defecto de cada clave del .env. Se escriben TODAS al guardar, para
+# que reconfigurar las credenciales no borre lo demás (canal de aviso, semestre…).
+ENV_DEFAULTS = {
+    "UAM_USERNAME": "",
+    "UAM_PASSWORD": "",
+    "APP_TIMEZONE": "America/Managua",
+    "SEMESTER_START": "",
+    "SEMESTER_END": "",
+    "HEADLESS_MODE": "True",
+    "BROWSER_TIMEOUT": "30000",
+    "NOTIFIER": "whatsapp_web",
+    "WA_PHONE_NUMBER": "",
+    "CALLMEBOT_PHONE": "",
+    "CALLMEBOT_APIKEY": "",
+}
 
 
 def _read_env_values() -> dict[str, str]:
+    """Lee el .env actual sin perder ninguna clave conocida."""
+    values = dict(ENV_DEFAULTS)
     env_file = config.BASE_DIR / ".env"
-    values = {"user": "", "password": "", "phone": ""}
     if env_file.exists():
         for line in env_file.read_text(encoding="utf-8").splitlines():
-            if line.startswith("UAM_USERNAME="):
-                values["user"] = line.split("=", 1)[1].strip().strip('"')
-            elif line.startswith("UAM_PASSWORD="):
-                values["password"] = line.split("=", 1)[1].strip().strip('"')
-            elif line.startswith("WA_PHONE_NUMBER="):
-                phone = line.split("=", 1)[1].strip().strip('"')
-                values["phone"] = phone[3:] if phone.startswith("505") else phone
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            clave, _, valor = line.partition("=")
+            clave = clave.strip()
+            if clave in values:
+                values[clave] = valor.strip().strip('"').strip("'")
     return values
 
 
-def _write_env(user: str, password: str, phone: str, headless: bool = True, timeout: int = 30000) -> None:
-    phone = phone.strip()
-    if phone and not phone.startswith("505"):
-        phone = "505" + phone
-    content = ENV_TEMPLATE.format(
-        user=user,
-        password=password,
-        phone=phone,
-        headless="True" if headless else "False",
-        timeout=timeout,
-    )
-    (config.BASE_DIR / ".env").write_text(content, encoding="utf-8")
+def _write_env(values: dict[str, str]) -> None:
+    completo = dict(ENV_DEFAULTS)
+    completo.update({k: v for k, v in values.items() if k in ENV_DEFAULTS})
+    (config.BASE_DIR / ".env").write_text(ENV_TEMPLATE.format(**completo), encoding="utf-8")
+
+
+def _pedir_fecha(etiqueta: str, actual: str) -> str:
+    """Pide una fecha YYYY-MM-DD y no la acepta si no se entiende."""
+    from attendance_assistant.utils.time_utils import parse_fecha
+
+    while True:
+        respuesta = input(f"{etiqueta} [{actual or 'sin definir'}]: ").strip()
+        if not respuesta:
+            return actual
+        if parse_fecha(respuesta):
+            return respuesta
+        print("  No entendí esa fecha. Usa el formato 2026-08-24.")
 
 
 def config_command() -> int:
-    current = _read_env_values()
+    valores = _read_env_values()
     print("== Configuración de Attendance Assistant ==")
     print("(Enter para conservar el valor actual)\n")
 
-    user = input(f"CIF / usuario UAM [{current['user'] or 'vacío'}]: ").strip() or current["user"]
-    password = getpass("Contraseña UAM [oculta; Enter = conservar]: ") or current["password"]
-    phone = input(f"WhatsApp +505 (8 dígitos) [{current['phone'] or 'vacío'}]: ").strip() or current["phone"]
+    telefono_actual = valores["WA_PHONE_NUMBER"]
+    if telefono_actual.startswith("505"):
+        telefono_actual = telefono_actual[3:]
 
-    if not (user and password and phone):
+    usuario = input(f"CIF / usuario UAM [{valores['UAM_USERNAME'] or 'vacío'}]: ").strip() or valores["UAM_USERNAME"]
+    password = getpass("Contraseña UAM [oculta; Enter = conservar]: ") or valores["UAM_PASSWORD"]
+    telefono = input(f"WhatsApp +505 (8 dígitos) [{telefono_actual or 'vacío'}]: ").strip() or telefono_actual
+
+    print("\nFechas del semestre (deja vacío si no quieres limitarlo):")
+    inicio = _pedir_fecha("  Inicio del semestre (YYYY-MM-DD)", valores["SEMESTER_START"])
+    fin = _pedir_fecha("  Fin del semestre    (YYYY-MM-DD)", valores["SEMESTER_END"])
+
+    if not (usuario and password and telefono):
         print("\nFaltan datos: usuario, contraseña y WhatsApp son obligatorios.")
         return 1
 
-    _write_env(user, password, phone)
+    telefono = telefono.strip()
+    if telefono and not telefono.startswith("505"):
+        telefono = "505" + telefono
+
+    valores.update({
+        "UAM_USERNAME": usuario,
+        "UAM_PASSWORD": password,
+        "WA_PHONE_NUMBER": telefono,
+        "SEMESTER_START": inicio,
+        "SEMESTER_END": fin,
+    })
+    # Si aun no hay numero para CallMeBot, reutilizamos el de WhatsApp.
+    if not valores["CALLMEBOT_PHONE"]:
+        valores["CALLMEBOT_PHONE"] = telefono
+
+    _write_env(valores)
     print(f"\nGuardado en {config.BASE_DIR / '.env'}")
     print("Si aún no vinculaste WhatsApp, ejecuta:  gabo whatsapp")
     return 0
@@ -170,18 +223,32 @@ def copy_schedule(source: str) -> int:
     if not src.exists():
         print(f"No existe el archivo: {src}")
         return 1
+    from attendance_assistant.utils.time_utils import extraer_dia, extraer_horas, load_schedule
+
     try:
-        data = json.loads(src.read_text(encoding="utf-8-sig"))
-        if "events" not in data:
-            print("El JSON no tiene la clave 'events'. ¿Seguro que es el horario exportado?")
-            return 1
+        json.loads(src.read_text(encoding="utf-8-sig"))
     except Exception as exc:
         print(f"El archivo no es un JSON válido: {exc}")
         return 1
 
+    eventos = load_schedule(src)
+    if not eventos:
+        print("No encontré eventos en ese archivo. ¿Seguro que es el horario exportado?")
+        return 1
+
+    # Avisamos si algún evento no se puede interpretar, antes de que el bot
+    # falle en silencio a mitad del semestre.
+    ilegibles = [
+        e for e in eventos
+        if extraer_dia(e) is None or extraer_horas(e)[0] is None
+    ]
+
     config.SCHEDULE_FILE.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(src, config.SCHEDULE_FILE)
-    print(f"Horario cargado ({len(data['events'])} eventos) en {config.SCHEDULE_FILE}.")
+    print(f"Horario cargado ({len(eventos)} eventos) en {config.SCHEDULE_FILE}.")
+    if ilegibles:
+        print(f"Ojo: {len(ilegibles)} evento(s) sin día u hora reconocibles; se ignorarán.")
+    print("Si usas GitHub Actions, regenera los horarios con:  gabo workflow")
     return 0
 
 
@@ -189,6 +256,65 @@ def whatsapp_setup() -> int:
     from attendance_assistant.whatsapp import setup_whatsapp
 
     asyncio.run(setup_whatsapp.main())
+    return 0
+
+
+# --------------------------------------------------------------------------- #
+#  Pasada única y workflow de GitHub Actions
+# --------------------------------------------------------------------------- #
+def tick_command(force_all: bool) -> int:
+    """Una sola revisión, sin proceso residente. Es lo que corre GitHub Actions."""
+    from attendance_assistant.scheduler.tick import run_tick
+
+    return asyncio.run(run_tick(force_all=force_all))
+
+
+def login_check_command() -> int:
+    """Solo verifica que el login funcione; no marca nada. Pensado para el
+    chequeo del domingo en la noche."""
+    from attendance_assistant.scheduler.login_check import run_login_check
+
+    return asyncio.run(run_login_check())
+
+
+def workflow_command(paso: int, workflow: str | None, chequeo: str | None) -> int:
+    """Regenera los `cron` del workflow principal y el del chequeo de login."""
+    from attendance_assistant.utils.cron import cron_lines, update_health_check_workflow, update_workflow
+    from attendance_assistant.utils.time_utils import load_schedule
+
+    path = Path(workflow) if workflow else config.BASE_DIR / ".github" / "workflows" / "asistencia.yml"
+    if not path.exists():
+        print(f"No encontré el workflow en: {path}")
+        return 1
+
+    eventos = load_schedule(config.SCHEDULE_FILE)
+    if not eventos:
+        print("El horario está vacío o no existe. Cárgalo con: gabo schedule <archivo.json>")
+        return 1
+
+    try:
+        total = update_workflow(path, eventos, config.TIMEZONE, paso)
+    except ValueError as exc:
+        print(str(exc))
+        return 1
+
+    print(f"Workflow actualizado: {total} expresiones cron para {len(eventos)} evento(s).")
+    print(f"Zona horaria de referencia: {config.TIMEZONE} (GitHub programa en UTC).")
+    for linea in cron_lines(eventos, config.TIMEZONE, paso):
+        print(f"  - cron: \"{linea}\"")
+
+    ruta_chequeo = Path(chequeo) if chequeo else config.BASE_DIR / ".github" / "workflows" / "chequeo-login.yml"
+    if ruta_chequeo.exists():
+        try:
+            linea = update_health_check_workflow(ruta_chequeo, config.TIMEZONE)
+        except ValueError as exc:
+            print(str(exc))
+            return 1
+        print(f"Chequeo de login actualizado ({ruta_chequeo.name}) — cron: \"{linea}\"")
+    else:
+        print(f"(No encontré {ruta_chequeo.name}; se omite el chequeo de login.)")
+
+    print("Recuerda commitear los workflows y el horario para que GitHub los vea.")
     return 0
 
 
@@ -234,6 +360,25 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("run", help="Ejecuta el scheduler en primer plano (para depurar).")
     sub.add_parser("check-now", help="Escanea Moodle una sola vez, ahora mismo.")
 
+    tick = sub.add_parser(
+        "tick",
+        help="Una pasada: revisa si hay clase en ventana y marca. Sin bucle (modo GitHub Actions).",
+    )
+    tick.add_argument("--all", action="store_true", help="Revisa todas las materias, ignorando el horario.")
+
+    sub.add_parser(
+        "login-check",
+        help="Solo verifica que el login a UAM Virtual funcione; no marca nada (chequeo del domingo).",
+    )
+
+    workflow = sub.add_parser(
+        "workflow",
+        help="Regenera los horarios (cron) de los workflows de GitHub Actions desde tu horario.",
+    )
+    workflow.add_argument("--paso", type=int, default=10, help="Minutos entre revisiones (por defecto 10).")
+    workflow.add_argument("--file", default=None, help="Ruta del workflow principal (por defecto .github/workflows/asistencia.yml).")
+    workflow.add_argument("--chequeo", default=None, help="Ruta del workflow de chequeo de login (por defecto .github/workflows/chequeo-login.yml).")
+
     log = sub.add_parser("log", help="Muestra el historial reciente de asistencias.")
     log.add_argument("-n", "--limit", type=int, default=20, help="Cuántos eventos mostrar (por defecto 20).")
 
@@ -262,6 +407,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "check-now":
         asyncio.run(run_once())
         return 0
+    if args.command == "tick":
+        return tick_command(args.all)
+    if args.command == "login-check":
+        return login_check_command()
+    if args.command == "workflow":
+        return workflow_command(args.paso, args.file, args.chequeo)
     if args.command == "log":
         return log_command(args.limit)
     return 1
