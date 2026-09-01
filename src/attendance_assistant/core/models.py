@@ -7,8 +7,14 @@ class CourseTarget(BaseModel):
     url: str
 
 class ScheduleEvent(BaseModel):
-    """Modelo estricto para los eventos del horario.json."""
+    """Forma de un evento del horario.
+
+    Las horas llegan como `timeRange: ["18:45", "20:35"]` o como `start`/`end`
+    sueltos según la app que exportó el horario; `time_utils` acepta ambas.
+    """
     title: str
     day: int
-    timeRange: List[str]
+    timeRange: Optional[List[str]] = None
+    start: Optional[str] = None
+    end: Optional[str] = None
     description: Optional[str] = None
