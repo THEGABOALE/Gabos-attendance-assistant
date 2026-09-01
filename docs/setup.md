@@ -79,9 +79,13 @@ copy .env.example .env
 | --- | --- | --- |
 | `UAM_USERNAME` | Sí | Código/CIF/correo de UAM Virtual. |
 | `UAM_PASSWORD` | Sí | Contraseña de UAM Virtual. |
-| `HEADLESS_MODE` | No | `True` = navegador invisible (recomendado en segundo plano); `False` = verlo. |
+| `APP_TIMEZONE` | No | Zona horaria del horario (`America/Managua` por defecto). Imprescindible fuera de tu PC. |
+| `SEMESTER_START` / `SEMESTER_END` | No | Rango del semestre (`YYYY-MM-DD`). Fuera de él el bot no revisa nada. |
+| `HEADLESS_MODE` | No | `True` = navegador invisible (por defecto); `False` = verlo. |
 | `BROWSER_TIMEOUT` | No | Timeout de Playwright en milisegundos. |
 | `WA_PHONE_NUMBER` | No | Número destino con código de país, sin `+` ni espacios (ej. `50588887777`). |
+| `NOTIFIER` | No | Canal de aviso: `whatsapp_web` (por defecto), `callmebot` o `none`. |
+| `CALLMEBOT_PHONE` / `CALLMEBOT_APIKEY` | No | Solo si usas `callmebot` (ver [modo nube](github-actions.md)). |
 
 </details>
 
@@ -97,16 +101,17 @@ El horario se guarda en `src/attendance_assistant/storage/horario.json`. Cárgal
 
 El comando valida que el JSON tenga la clave `events` antes de copiarlo.
 
-**Estructura esperada** (el bot solo usa estos campos de cada evento):
+**Lo que el bot necesita de cada evento** es solo tres cosas: nombre, día y horas.
 
 ```json
 {
   "events": [
     {
-      "title": "MICROECONOMIA",
-      "day": 3,
-      "timeRange": ["18:45", "21:20"],
-      "description": "Grupo 8 / P - 201"
+      "title": "ARQUITECTURA DE COMPUTADORAS",
+      "day": 2,
+      "start": "18:45",
+      "end": "20:35",
+      "description": "GRUPO 2"
     }
   ]
 }
@@ -114,12 +119,34 @@ El comando valida que el JSON tenga la clave `events` antes de copiarlo.
 
 | Campo | Significado |
 | --- | --- |
-| `title` | Nombre de la materia. Debe **coincidir** (aunque sea en parte) con el nombre en Moodle. |
+| `title` | Nombre de la materia. Se empareja con el nombre en Moodle **tolerando tildes y erratas**. |
 | `day` | Día de la semana: **0 = Lunes**, 1 = Martes, … 6 = Domingo. |
-| `timeRange` | `["hora_inicio", "hora_fin"]` en formato 24h `HH:MM`. El bot usa la **hora de inicio**. |
+| `start` / `end` | Horas de inicio y fin. Si falta el fin, se asumen 3 horas de clase. |
 | `description` | Opcional, informativo. |
 
-> El JSON es el export literal de una app de horarios; los demás campos (colores, íconos) se ignoran sin problema.
+**No importa cómo los llame tu app de horarios.** El lector acepta las variantes
+más comunes, así que puedes cambiar de app sin tocar el código:
+
+| Campo | Alias aceptados |
+| --- | --- |
+| Lista de eventos | `events`, `classes`, `schedule`, `items`, `eventos`, `clases`, o un JSON que sea directamente una lista |
+| Nombre | `title`, `name`, `subject`, `course`, `materia`, `asignatura`, `nombre` |
+| Día | `day`, `dayOfWeek`, `weekday`, `dia`, `diaSemana` — como número **o** como nombre (`"Lunes"`, `"Wed"`) |
+| Horas | `start`/`end`, `startTime`/`endTime`, `from`/`to`, `hora_inicio`/`hora_fin`, `inicio`/`fin`, o `timeRange: ["18:45", "20:35"]` |
+| Formato de hora | 24h (`18:45`, `18:45:00`) o 12h (`6:45 PM`) |
+
+> El JSON es el export literal de una app de horarios; los demás campos (colores, íconos) se ignoran sin problema. Si algún evento queda sin día u hora reconocibles, `gabo schedule` te lo avisa al cargarlo.
+
+### Fechas del semestre
+
+Para que el bot no revise nada en vacaciones, dile cuándo empieza y termina:
+
+```powershell
+.\gabo.cmd config     # te pregunta las dos fechas (Enter para dejarlas vacías)
+```
+
+Quedan guardadas como `SEMESTER_START` y `SEMESTER_END` en el `.env`. En GitHub
+Actions van en el propio workflow (o como variables del repositorio).
 
 ---
 
@@ -174,6 +201,9 @@ Para probar que todo funciona **sin esperar a una clase**, fuerza una revisión 
 ```powershell
 .\gabo.cmd check-now
 ```
+
+Si además quieres que marque con la PC apagada, sigue la
+**[guía de GitHub Actions](github-actions.md)**.
 
 ---
 

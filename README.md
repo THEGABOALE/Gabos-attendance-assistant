@@ -1,6 +1,6 @@
 # Attendance Assistant
 
-> Marca tu asistencia en **UAM Virtual (Moodle)** de forma automática, te avisa por **WhatsApp** cuando lo hace, y corre solo en segundo plano cada vez que enciendes la PC.
+> Marca tu asistencia en **UAM Virtual (Moodle)** de forma automática, te avisa por **WhatsApp** cuando lo hace, y corre solo en segundo plano cada vez que enciendes la PC — o en **GitHub Actions** cuando la tienes apagada.
 
 <p align="center">
   <img alt="Python" src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white">
@@ -59,12 +59,30 @@ powershell -ExecutionPolicy Bypass -File scripts\install_autostart.ps1
 | `gabo check-now` | Revisa Moodle una sola vez, ahora mismo (para probar). |
 | `gabo run` | Igual que el servicio, pero en primer plano (para depurar). |
 | `gabo log` | Muestra el historial reciente de asistencias. |
+| `gabo tick` | Una sola pasada: mira si hay clase en ventana y marca. Es lo que corre en la nube. |
+| `gabo workflow` | Regenera los horarios (`cron`) de GitHub Actions desde tu horario. |
+| `gabo login-check` | Solo verifica que el login a UAM Virtual funcione (lo usa el chequeo del domingo). |
 
 > En Windows usa `gabo.cmd`; en Linux/macOS o Git Bash usa `./gabo`.
+
+## Cuando la PC está apagada
+
+El mismo bot puede correr en **GitHub Actions** como respaldo: un `cron` generado
+desde tu propio horario levanta un runner solo durante tus ventanas de clase,
+marca la asistencia y se apaga. Los dos modos conviven sin chocar — si el
+servicio local ya marcó, la pasada en la nube no encuentra nada que hacer.
+
+```powershell
+.\gabo.cmd workflow    # genera los horarios del workflow desde tu horario.json
+```
+
+Los detalles (secretos, avisos por CallMeBot y límites) están en la
+**[guía de GitHub Actions](docs/github-actions.md)**.
 
 ## Documentación
 
 - **[Guía de instalación y uso](docs/setup.md)** — paso a paso completo.
+- **[Modo nube: GitHub Actions](docs/github-actions.md)** — para que marque con la PC apagada.
 - **[Cómo funciona por dentro](docs/arquitectura.md)** — la lógica de cada parte del proyecto.
 
 ## Aviso
