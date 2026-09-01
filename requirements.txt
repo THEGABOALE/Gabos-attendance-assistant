@@ -1,28 +1,11 @@
-﻿altgraph==0.17.5
-annotated-types==0.7.0
-cffi==2.0.0
-charset-normalizer==3.4.7
-colorama==0.4.6
-cryptography==49.0.0
-customtkinter==5.2.2
-darkdetect==0.8.0
-greenlet==3.5.1
+# Dependencias reales del proyecto (sin el lastre del pip freeze anterior:
+# customtkinter, pypdfium2, pyinstaller y SQLAlchemy venían de funciones que
+# ya se descartaron y solo alargaban la instalación en CI).
 loguru==0.7.3
-packaging==26.2
-pefile==2024.8.26
 playwright==1.60.0
 psutil==7.2.2
-pycparser==3.0
 pydantic==2.13.4
-pydantic_core==2.46.4
-pyee==13.0.1
-pyinstaller==6.21.0
-pyinstaller-hooks-contrib==2026.6
-pypdfium2==5.10.1
 python-dotenv==1.2.2
-pywin32-ctypes==0.2.3
-setuptools==82.0.1
-SQLAlchemy==2.0.50
-typing-inspection==0.4.2
-typing_extensions==4.15.0
-win32_setctime==1.2.0
+
+# Base de datos de zonas horarias: Windows no trae una y zoneinfo la necesita.
+tzdata>=2024.1

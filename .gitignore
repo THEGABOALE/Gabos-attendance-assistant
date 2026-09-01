@@ -23,6 +23,9 @@ screenshots/
 
 state/
 **/storage/*.json
+# ...salvo el horario: GitHub Actions lo necesita en el repo para saber cuándo
+# hay clase (no contiene nada sensible, solo materias y horas).
+!src/attendance_assistant/storage/horario.json
 *.pid
 
 .pytest_cache/
