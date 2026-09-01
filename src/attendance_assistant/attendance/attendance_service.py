@@ -1,9 +1,9 @@
 import random
-from datetime import datetime
 from playwright.async_api import Page
+from attendance_assistant.core import clock
 from attendance_assistant.core.logger import logger
 from attendance_assistant.browser.selectors import MoodleSelectors
-from attendance_assistant.whatsapp.whatsapp_service import WhatsappService
+from attendance_assistant.notifications.notifier import notify
 from attendance_assistant.core.reporting import record_attendance_event
 
 class AttendanceService:
@@ -90,13 +90,12 @@ class AttendanceService:
                             "Asistencia marcada correctamente en Moodle.",
                         )
 
-                        wa_service = WhatsappService()
-                        hora = datetime.now().strftime("%H:%M")
+                        hora = clock.now().strftime("%H:%M")
                         alerta = (
                             "Asistente de Asistencias\n\n"
                             f"✅ Asistencia de *{course_name}* puesta a las {hora}."
                         )
-                        await wa_service.send_message(alerta)
+                        await notify(alerta)
                         
                         return True
                 

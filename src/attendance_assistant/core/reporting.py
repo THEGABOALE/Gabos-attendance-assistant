@@ -6,10 +6,10 @@ quieres revisar el semestre completo). No toma capturas ni levanta servidores:
 solo escribe/lee una lista de eventos en JSON.
 """
 import json
-from datetime import datetime
 from typing import Any
 
 from attendance_assistant.config.settings import config
+from attendance_assistant.core import clock
 from attendance_assistant.core.logger import logger
 
 DATE_FORMAT = "%Y-%m-%d"
@@ -40,12 +40,14 @@ def record_attendance_event(course_name: str, status: str, message: str = "") ->
     """Agrega un evento al historial.
 
     status: "marked" | "not_available" | "error".
-    Para "not_available" se evita duplicar (una vez por materia por día).
+    "not_available" y "error" se anotan una sola vez por materia y por día: en
+    modo GitHub Actions hay una pasada cada 5 minutos y, si UAM está caído, el
+    historial se llenaría de filas idénticas.
     """
     events = _read_events()
-    today = datetime.now().strftime(DATE_FORMAT)
+    today = clock.now().strftime(DATE_FORMAT)
 
-    if status == "not_available" and any(
+    if status in ("not_available", "error") and any(
         event.get("date") == today
         and event.get("course") == course_name
         and event.get("status") == status
@@ -55,7 +57,7 @@ def record_attendance_event(course_name: str, status: str, message: str = "") ->
 
     events.append(
         {
-            "timestamp": datetime.now().strftime(TIME_FORMAT),
+            "timestamp": clock.now().strftime(TIME_FORMAT),
             "date": today,
             "course": course_name,
             "status": status,
@@ -77,6 +79,22 @@ def record_window_result(course_names: list[str], marked_names: list[str]) -> No
             "not_available",
             "Se revisó la ventana del horario, pero Moodle no tenía la asistencia abierta.",
         )
+
+
+def has_status_today(course_name: str, status: str) -> bool:
+    """¿Ya quedó registrado hoy este estado para esta materia?
+
+    Es la única memoria que le queda al bot cuando corre sin proceso residente
+    (GitHub Actions): evita re-escanear lo ya marcado y evita repetir la misma
+    alerta de error en cada ejecución del día.
+    """
+    today = clock.today_str()
+    return any(
+        event.get("date") == today
+        and event.get("course") == course_name
+        and event.get("status") == status
+        for event in _read_events()
+    )
 
 
 def recent_events(limit: int = 20) -> list[dict[str, Any]]:

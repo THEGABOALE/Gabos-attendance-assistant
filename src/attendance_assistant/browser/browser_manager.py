@@ -63,11 +63,21 @@ class BrowserManager:
         logger.info("Estado de sesión persistido correctamente.")
 
     async def close(self):
-        """Cierra el navegador y libera recursos."""
+        """Cierra el navegador y libera recursos.
+
+        Se puede llamar dos veces (p. ej. tras un fallo de login) sin que un
+        error de cierre tape el error real que provocó la salida.
+        """
         logger.info("Liberando recursos del navegador...")
-        if self.context:
-            await self.context.close()
-        if self.browser:
-            await self.browser.close()
-        if self.playwright:
-            await self.playwright.stop()
+        for recurso, cerrar in (
+            (self.context, "close"),
+            (self.browser, "close"),
+            (self.playwright, "stop"),
+        ):
+            if recurso is None:
+                continue
+            try:
+                await getattr(recurso, cerrar)()
+            except Exception as exc:
+                logger.debug(f"Recurso ya liberado o no cerrable: {exc}")
+        self.context = self.browser = self.playwright = self.page = None

@@ -1,7 +1,6 @@
 import os
 import sys
 import asyncio
-from datetime import datetime
 from pathlib import Path
 from loguru import logger
 
@@ -10,7 +9,9 @@ if sys.path[0] != src_path:
     sys.path.insert(0, src_path)
 
 from attendance_assistant.config.settings import config
+from attendance_assistant.core import clock
 from attendance_assistant.main import main as run_scanner
+from attendance_assistant.notifications.notifier import notify
 from attendance_assistant.utils.time_utils import load_schedule, get_active_classes
 from attendance_assistant.core.reporting import record_window_result, record_attendance_event
 
@@ -19,10 +20,8 @@ HEARTBEAT_SECONDS = 60
 
 
 async def _notify_failure(clases: list) -> None:
-    """Avisa por WhatsApp (y deja constancia en el historial) cuando un escaneo
-    termina en error, para que el fallo no pase desapercibido."""
-    from attendance_assistant.whatsapp.whatsapp_service import WhatsappService
-
+    """Avisa (y deja constancia en el historial) cuando un escaneo termina en
+    error, para que el fallo no pase desapercibido."""
     for clase in clases:
         record_attendance_event(clase, "error", "No se pudo revisar (login o Moodle).")
 
@@ -33,7 +32,7 @@ async def _notify_failure(clases: list) -> None:
         "Puede ser un problema de acceso (revisa tus datos con `gabo config`) "
         "o que UAM Virtual esté caído. Conviene marcarla a mano."
     )
-    await WhatsappService().send_message(mensaje)
+    await notify(mensaje)
 
 
 async def run_smart_scheduler():
@@ -50,7 +49,7 @@ async def run_smart_scheduler():
     while True:
         try:
             # Revisamos qué día es hoy para limpiar la memoria si cambió el día
-            today_str = datetime.now().strftime("%Y-%m-%d")
+            today_str = clock.today_str()
             if today_str not in completed_today:
                 completed_today = {today_str: []}
                 alerted_today = False
@@ -66,11 +65,11 @@ async def run_smart_scheduler():
                 logger.success(f"¡Ventana de asistencia crítica! Materia(s) pendiente(s): {nombres}")
                 
                 # Ejecutamos el bot y esperamos la lista de lo que logró marcar
-                marked = await run_scanner(target_classes=clases_pendientes)
-
-                if marked is None:
+                try:
+                    marked = await run_scanner(target_classes=clases_pendientes) or []
+                except Exception as exc:
                     # El escaneo falló (login, navegador o red): avisamos una vez al día
-                    logger.error("El escaneo terminó con error; no se pudo revisar la asistencia.")
+                    logger.error(f"El escaneo terminó con error; no se pudo revisar la asistencia: {exc}")
                     if not alerted_today:
                         alerted_today = True
                         await _notify_failure(clases_pendientes)
