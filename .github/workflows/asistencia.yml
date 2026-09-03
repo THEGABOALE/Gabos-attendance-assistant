@@ -111,7 +111,11 @@ jobs:
           cache: pip
 
       - name: Instalar dependencias
-        run: pip install --no-cache-dir -r requirements.txt
+        # Sin --no-cache-dir: "cache: pip" de arriba espera que pip SÍ escriba
+        # en ~/.cache/pip para poder guardarlo entre corridas. Combinar ambos
+        # hacía fallar el job al final (el cleanup de setup-python no
+        # encontraba nada que cachear), aunque el login sí funcionara bien.
+        run: pip install -r requirements.txt
 
       - name: Cachear el navegador de Playwright
         uses: actions/cache@v4
