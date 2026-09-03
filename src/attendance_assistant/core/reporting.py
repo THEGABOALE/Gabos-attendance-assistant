@@ -11,6 +11,7 @@ from typing import Any
 from attendance_assistant.config.settings import config
 from attendance_assistant.core import clock
 from attendance_assistant.core.logger import logger
+from attendance_assistant.utils.matching import coincide
 
 DATE_FORMAT = "%Y-%m-%d"
 TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
@@ -87,12 +88,19 @@ def has_status_today(course_name: str, status: str) -> bool:
     Es la única memoria que le queda al bot cuando corre sin proceso residente
     (GitHub Actions): evita re-escanear lo ya marcado y evita repetir la misma
     alerta de error en cada ejecución del día.
+
+    Compara con tolerancia (como el emparejador de Moodle): `course_name`
+    suele venir del horario ("MACROECONOMIA"), pero un evento "marked" se
+    guarda con el nombre tal cual lo scrapeó Moodle ("ADM0216 - MACROECONOMIA
+    - GRUPO 7"). Comparar con `==` nunca encontraba coincidencia y el bot
+    volvía a escanear la misma materia en cada pasada, aunque ya estuviera
+    marcada.
     """
     today = clock.today_str()
     return any(
         event.get("date") == today
-        and event.get("course") == course_name
         and event.get("status") == status
+        and coincide(course_name, event.get("course", ""))
         for event in _read_events()
     )
 
