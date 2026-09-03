@@ -20,6 +20,20 @@
       "course": "PENSAMIENTO CREATIVO",
       "status": "not_available",
       "message": "Se revisó la ventana del horario, pero Moodle no tenía la asistencia abierta."
+    },
+    {
+      "timestamp": "2026-09-03 12:54:13",
+      "date": "2026-09-03",
+      "course": "B2 COMMUNICATIVE ENGLISH",
+      "status": "not_available",
+      "message": "Se revisó la ventana del horario, pero Moodle no tenía la asistencia abierta."
+    },
+    {
+      "timestamp": "2026-09-03 12:54:13",
+      "date": "2026-09-03",
+      "course": "INTEGRACION ECONOMICA CENTROAMERICANA",
+      "status": "not_available",
+      "message": "Se revisó la ventana del horario, pero Moodle no tenía la asistencia abierta."
     }
   ]
 }
