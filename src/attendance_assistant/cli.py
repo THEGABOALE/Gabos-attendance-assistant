@@ -283,6 +283,20 @@ def login_check_command() -> int:
     return asyncio.run(run_login_check())
 
 
+def notify_test_command(mensaje: str) -> int:
+    """Manda un mensaje de prueba por el canal configurado (NOTIFIER), sin
+    tocar Moodle ni el navegador. Sirve para confirmar que un canal nuevo
+    (correo, CallMeBot…) realmente entrega el aviso."""
+    from attendance_assistant.notifications.notifier import notify
+
+    ok = asyncio.run(notify(mensaje))
+    if ok:
+        print(f"Aviso enviado correctamente por el canal '{config.NOTIFIER}'.")
+        return 0
+    print(f"No se pudo enviar el aviso por '{config.NOTIFIER}'. Revisa la configuración o el log de arriba.")
+    return 1
+
+
 def workflow_command(paso: int, workflow: str | None, chequeo: str | None) -> int:
     """Regenera los `cron` del workflow principal y el del chequeo de login."""
     from attendance_assistant.utils.cron import cron_lines, update_health_check_workflow, update_workflow
@@ -377,6 +391,16 @@ def main(argv: list[str] | None = None) -> int:
         help="Solo verifica que el login a UAM Virtual funcione; no marca nada (chequeo del domingo).",
     )
 
+    notify_test = sub.add_parser(
+        "notify-test",
+        help="Manda un mensaje de prueba por el canal de aviso (NOTIFIER), sin tocar Moodle.",
+    )
+    notify_test.add_argument(
+        "--mensaje",
+        default="Mensaje de prueba del Asistente de Asistencias.",
+        help="Texto a enviar.",
+    )
+
     workflow = sub.add_parser(
         "workflow",
         help="Regenera los horarios (cron) de los workflows de GitHub Actions desde tu horario.",
@@ -417,6 +441,8 @@ def main(argv: list[str] | None = None) -> int:
         return tick_command(args.all)
     if args.command == "login-check":
         return login_check_command()
+    if args.command == "notify-test":
+        return notify_test_command(args.mensaje)
     if args.command == "workflow":
         return workflow_command(args.paso, args.file, args.chequeo)
     if args.command == "log":

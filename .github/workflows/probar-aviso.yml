@@ -1,0 +1,47 @@
+# Manda un mensaje de prueba por el canal de aviso configurado, sin tocar
+# Moodle ni el navegador. Sirve para confirmar que un canal nuevo (correo,
+# CallMeBot…) realmente entrega el mensaje, sin esperar a una clase real ni
+# a que falle algo a propósito.
+name: Probar aviso
+
+on:
+  workflow_dispatch:
+    inputs:
+      mensaje:
+        description: "Mensaje de prueba a enviar"
+        type: string
+        default: "Mensaje de prueba del Asistente de Asistencias."
+
+permissions:
+  contents: read
+
+jobs:
+  notify-test:
+    if: github.repository == 'THEGABOALE/Gabos-attendance-assistant'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    env:
+      PYTHONPATH: ${{ github.workspace }}/src
+      NOTIFIER: ${{ vars.NOTIFIER || 'email' }}
+      CALLMEBOT_PHONE: ${{ secrets.CALLMEBOT_PHONE }}
+      CALLMEBOT_APIKEY: ${{ secrets.CALLMEBOT_APIKEY }}
+      EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
+      EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
+      EMAIL_TO: ${{ secrets.EMAIL_TO }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      # No instala Chromium a propósito: notify-test nunca abre el navegador,
+      # así que esta prueba es mucho más rápida que las otras dos corridas.
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Enviar aviso de prueba
+        run: python -m attendance_assistant.cli notify-test --mensaje "${{ inputs.mensaje }}"
