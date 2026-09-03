@@ -41,6 +41,13 @@
       "course": "Nombre del curso\n                                \n                                ADM0216 - MACROECONOMIA - GRUPO 7",
       "status": "marked",
       "message": "Asistencia marcada correctamente en Moodle."
+    },
+    {
+      "timestamp": "2026-09-03 16:59:14",
+      "date": "2026-09-03",
+      "course": "MACROECONOMIA",
+      "status": "not_available",
+      "message": "Se revisó la ventana del horario, pero Moodle no tenía la asistencia abierta."
     }
   ]
 }
