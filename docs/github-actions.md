@@ -15,7 +15,7 @@ flowchart LR
     C -->|Sí| E{¿Ya se marcó hoy<br/>según el historial?}
     E -->|Sí| D
     E -->|No| F[Entra a Moodle y marca]
-    F --> G[Avisa por CallMeBot]
+    F --> G[Avisa por correo o WhatsApp]
     F --> H[Commitea el historial]
 ```
 
@@ -29,7 +29,7 @@ flowchart LR
 | **Cuándo corre** | Siempre que la PC esté encendida | Solo en los `cron` generados desde tu horario |
 | **Memoria de lo marcado** | En RAM (`completed_today`) | En el historial versionado (`history/attendance_report.json`) |
 | **Hora** | La de Windows | UTC → por eso `APP_TIMEZONE` es obligatorio |
-| **Aviso** | WhatsApp Web (perfil vinculado por QR) | CallMeBot (API HTTP); WhatsApp Web **no** funciona ahí |
+| **Aviso** | WhatsApp Web (perfil vinculado por QR) | Correo por Gmail (recomendado) o CallMeBot; WhatsApp Web **no** funciona ahí |
 
 ---
 
@@ -74,30 +74,47 @@ En **Settings → Secrets and variables → Actions → New repository secret**:
 | --- | --- | --- |
 | `UAM_USERNAME` | Sí | Tu usuario de UAM Virtual |
 | `UAM_PASSWORD` | Sí | Tu contraseña de UAM Virtual |
-| `CALLMEBOT_PHONE` | Solo si quieres avisos | Tu número con código de país, sin `+` (ej. `50588887777`) |
-| `CALLMEBOT_APIKEY` | Solo si quieres avisos | La API key que te da CallMeBot |
+| `EMAIL_ADDRESS` | Solo si quieres avisos por correo (recomendado) | Tu dirección de Gmail |
+| `EMAIL_APP_PASSWORD` | Solo si quieres avisos por correo | Ver §d) |
+| `EMAIL_TO` | No | A quién le llega el aviso; si lo dejas vacío, `EMAIL_ADDRESS` se lo manda a sí mismo |
+| `CALLMEBOT_PHONE` | Solo si prefieres CallMeBot en vez de correo | Tu número con código de país, sin `+` (ej. `50588887777`) |
+| `CALLMEBOT_APIKEY` | Solo si prefieres CallMeBot | La API key que te da CallMeBot |
 
-Si prefieres no recibir avisos desde la nube, crea la **variable** (no secreto)
-`NOTIFIER` con el valor `none`.
+Por defecto el canal es `email`. Si prefieres CallMeBot en su lugar, o no
+recibir avisos desde la nube, crea la **variable** (no secreto) `NOTIFIER` con
+el valor `callmebot` o `none` respectivamente.
 
 Las fechas del semestre viajan en el propio workflow
 (`SEMESTER_START` / `SEMESTER_END`). Para cambiarlas sin editar el archivo,
 crea variables del repositorio con esos mismos nombres.
 
-### d) La primera vez, crea también los dos secretos de CallMeBot antes de generar
-
-Ver el siguiente punto — sin `CALLMEBOT_APIKEY` los avisos simplemente no
-salen, pero el bot sigue marcando la asistencia igual.
-
-### e) Da de alta CallMeBot (gratis, una sola vez)
+### d) Da de alta el correo (gratis, una sola vez, recomendado)
 
 WhatsApp Web no puede correr en un runner: depende del perfil de navegador que
-vinculaste por QR, que vive solo en tu disco. CallMeBot lo sustituye con una
-simple petición HTTP:
+vinculaste por QR, que vive solo en tu disco. El correo lo sustituye sin
+depender de ningún servicio de terceros — es tu propia cuenta de Gmail
+hablándole a sí misma por SMTP:
+
+1. Activa la **verificación en 2 pasos** en tu cuenta de Google (si no la
+   tienes ya): [myaccount.google.com/security](https://myaccount.google.com/security).
+2. Ve a [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
+   y genera una **contraseña de aplicación** para "Correo".
+3. Ese código de 16 caracteres va en `EMAIL_APP_PASSWORD` — **no** es tu
+   contraseña normal de Gmail, esa no funciona aquí.
+
+### e) Alternativa: CallMeBot (WhatsApp, gratis, pero puede fallar)
+
+Si prefieres recibir el aviso por WhatsApp en vez de correo, o quieres tener
+ambos activos, CallMeBot funciona igual con una petición HTTP:
 
 1. Agenda el número **+34 621 331 709** en tu teléfono.
 2. Mándale por WhatsApp: `I allow callmebot to send me messages`
 3. Te responde con tu **API key** → va en `CALLMEBOT_APIKEY`.
+
+> Es un servicio gratuito de un solo desarrollador: a veces tarda en responder
+> el alta, o el servicio queda caído varios días. No depende de nada de este
+> proyecto — si te falla, el correo es el respaldo pensado para eso, y el bot
+> sigue marcando la asistencia igual aunque ningún aviso salga.
 
 ### f) Sube todo
 
@@ -125,9 +142,9 @@ no requiere que hagas nada.
 Para no enterarte de un problema de credenciales hasta que ya empezaron las
 clases, hay un segundo workflow —**`chequeo-login.yml`**— que corre el
 **domingo a las 20:00 (hora de Managua)** y solo intenta iniciar sesión, sin
-marcar nada. Si falla, avisa por WhatsApp con tiempo de sobra para arreglarlo
-con `gabo config`. Si el login funciona, no manda nada — no hace falta
-confirmar cada semana que va bien.
+marcar nada. Si falla, avisa por el canal configurado (`NOTIFIER`) con tiempo
+de sobra para arreglarlo con `gabo config`. Si el login funciona, no manda
+nada — no hace falta confirmar cada semana que va bien.
 
 > Ojo con la hora si miras el archivo generado: "domingo 20:00 en Managua" cae,
 > al convertir a UTC (Managua es UTC-6), en la madrugada del **lunes**. El
@@ -159,11 +176,14 @@ gabo tick --all
   queda como artefacto durante 7 días.
 - **Códigos de salida de `gabo tick`:** `0` todo bien (marcó o no había nada),
   `1` había clase y falló el escaneo, `2` falta configuración.
-- **Avisos por WhatsApp, no solo el historial:** si falla el escaneo de una
-  materia, si falta configuración (credenciales u horario), o si algo se rompe
-  antes de llegar a Moodle (dependencias, Chromium, el commit del historial),
-  cada caso manda su propio aviso — deduplicado a una vez por día para no
-  llenarte el teléfono si el problema persiste toda la jornada.
+- **Avisos por el canal configurado, no solo el historial:** si falla el
+  escaneo de una materia, si falta configuración (credenciales u horario), o
+  si algo se rompe antes de llegar a Moodle (dependencias, Chromium, el commit
+  del historial), cada caso manda su propio aviso — deduplicado a una vez por
+  día para no llenarte la bandeja si el problema persiste toda la jornada. El
+  aviso de "algo se rompió fuera del escaneo" intenta por CallMeBot **y** por
+  correo a la vez (los que tengan secretos configurados), para no depender de
+  un solo canal justo cuando algo ya salió mal.
 
 ---
 

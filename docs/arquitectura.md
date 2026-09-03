@@ -63,7 +63,8 @@ attendance-assintant/
    ├─ attendance/attendance_service.py  # El corazón: marca la asistencia
    ├─ notifications/
    │  ├─ notifier.py          # Elige el canal de aviso según el entorno
-   │  └─ callmebot_service.py # WhatsApp por API HTTP (sirve en la nube)
+   │  ├─ email_service.py     # Gmail por SMTP (recomendado para la nube)
+   │  └─ callmebot_service.py # WhatsApp por API HTTP (alternativa, puede caerse)
    ├─ whatsapp/
    │  ├─ whatsapp_service.py  # Envía el mensaje por WhatsApp Web (solo local)
    │  └─ setup_whatsapp.py    # Vincula el QR (una vez)
@@ -195,9 +196,15 @@ conversión de zona horaria.
 
 ### `notifications/notifier.py` — un solo punto de salida
 WhatsApp Web necesita el perfil vinculado por QR, que existe únicamente en tu
-disco; CallMeBot es una petición HTTP que funciona en cualquier parte. La
-variable `NOTIFIER` decide cuál se usa, y el resto del código solo llama a
-`notify()`.
+disco; CallMeBot y el correo funcionan en cualquier parte. La variable
+`NOTIFIER` decide cuál se usa, y el resto del código solo llama a `notify()`.
+
+`email_service.py` es el canal recomendado para la nube: manda el aviso por
+SMTP de Gmail con una contraseña de aplicación, usando `smtplib` (viene con
+Python, no agrega dependencias). A diferencia de CallMeBot o de un servicio
+como Green API, no depende de ningún tercero que se pueda caer, cobrar, o
+necesitar que tu teléfono esté conectado — es tu propia cuenta hablándole a
+sí misma.
 
 ### `cli.py` — el panel de control
 La única superficie de control. Traduce cada comando (`config`, `schedule`, `whatsapp`, `start`, `stop`, `status`, `run`, `check-now`, `log`) a la función correspondiente. Gestiona el arranque/paro del proceso en segundo plano vía el archivo PID.
