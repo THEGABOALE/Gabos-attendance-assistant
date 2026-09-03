@@ -21,6 +21,13 @@ def test_no_confunde_materias_con_numero_romano_distinto():
     assert coincide("CONTABILIDAD II", "CON0202 - CONTABILIDAD II - GRUPO 1")
 
 
+def test_tampoco_al_reves_aunque_sea_subcadena_literal():
+    # "CONTABILIDAD I" son, letra por letra, las primeras 14 letras de
+    # "CONTABILIDAD II" — el atajo de substring que había antes caía aquí.
+    assert not coincide("CONTABILIDAD I", "CON0202 - CONTABILIDAD II - GRUPO 1")
+    assert coincide("CONTABILIDAD I", "CON0201 - CONTABILIDAD I - GRUPO 1")
+
+
 def test_no_empareja_materias_ajenas():
     assert not coincide("MACROECONOMIA", "SIS0410 - SISTEMAS OPERATIVOS - GRUPO 4")
     assert not coincide("", "SISTEMAS OPERATIVOS")

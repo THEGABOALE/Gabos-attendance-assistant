@@ -30,16 +30,19 @@ def normalizar(texto: str) -> str:
 
 
 def coincide(objetivo: str, nombre_curso: str) -> bool:
-    """¿La materia del horario es esta asignatura de Moodle?"""
+    """¿La materia del horario es esta asignatura de Moodle?
+
+    Siempre compara palabra por palabra, nunca con un `in` sobre el string
+    completo: "CONTABILIDAD I" es, letra por letra, una subcadena de
+    "CONTABILIDAD II" (las primeras 14 letras coinciden), así que ese atajo
+    confundía justo las dos materias que las palabras cortas exactas están
+    pensadas para distinguir.
+    """
     objetivo_norm = normalizar(objetivo)
     curso_norm = normalizar(nombre_curso)
 
     if not objetivo_norm or not curso_norm:
         return False
-
-    # Camino feliz: el título aparece tal cual dentro del nombre del curso.
-    if objetivo_norm in curso_norm:
-        return True
 
     palabras_curso = curso_norm.split()
 
