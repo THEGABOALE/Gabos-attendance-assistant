@@ -97,10 +97,15 @@ jobs:
       ATTENDANCE_REPORT_FILE: ${{ github.workspace }}/history/attendance_report.json
       UAM_USERNAME: ${{ secrets.UAM_USERNAME }}
       UAM_PASSWORD: ${{ secrets.UAM_PASSWORD }}
-      # Canal de aviso: "callmebot" (WhatsApp por API) o "none".
-      NOTIFIER: ${{ vars.NOTIFIER || 'callmebot' }}
+      # Canal de aviso: "email" (Gmail por SMTP, recomendado: no depende de
+      # ningún tercero), "callmebot" (WhatsApp por API, depende de un
+      # servicio gratuito ajeno que se puede caer) o "none".
+      NOTIFIER: ${{ vars.NOTIFIER || 'email' }}
       CALLMEBOT_PHONE: ${{ secrets.CALLMEBOT_PHONE }}
       CALLMEBOT_APIKEY: ${{ secrets.CALLMEBOT_APIKEY }}
+      EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
+      EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
+      EMAIL_TO: ${{ secrets.EMAIL_TO }}
 
     steps:
       - uses: actions/checkout@v4
@@ -172,10 +177,13 @@ jobs:
           if-no-files-found: ignore
 
       - name: Avisar si algo falló fuera del escaneo
-        # "gabo tick" ya avisa por WhatsApp cuando el escaneo o la
+        # "gabo tick" ya avisa (por el canal que sea) cuando el escaneo o la
         # configuración fallan (steps.tick.outcome == 'failure'). Esto es la
         # red de respaldo para lo que pasa AFUERA de eso — dependencias,
         # Chromium, o el propio commit del historial — donde nadie se entera.
+        # No depende de NOTIFIER: intenta por cualquier canal que tenga
+        # secretos configurados, para no depender de que Python ni el
+        # proyecto se hayan podido instalar siquiera.
         if: failure() && steps.tick.outcome != 'failure'
         env:
           MSG: >-
@@ -188,4 +196,7 @@ jobs:
           if [ -n "$CALLMEBOT_PHONE" ] && [ -n "$CALLMEBOT_APIKEY" ]; then
             ENCODED=$(python3 -c "import urllib.parse, os; print(urllib.parse.quote(os.environ['MSG']))")
             curl -s "https://api.callmebot.com/whatsapp.php?phone=$CALLMEBOT_PHONE&text=$ENCODED&apikey=$CALLMEBOT_APIKEY" > /dev/null || true
+          fi
+          if [ -n "$EMAIL_ADDRESS" ] && [ -n "$EMAIL_APP_PASSWORD" ]; then
+            python3 -c "import os,smtplib,ssl;from email.mime.text import MIMEText;msg=MIMEText(os.environ['MSG']);msg['Subject']='Asistente de Asistencias';msg['From']=os.environ['EMAIL_ADDRESS'];msg['To']=os.environ.get('EMAIL_TO') or os.environ['EMAIL_ADDRESS'];s=smtplib.SMTP('smtp.gmail.com',587,timeout=30);s.starttls(context=ssl.create_default_context());s.login(os.environ['EMAIL_ADDRESS'],os.environ['EMAIL_APP_PASSWORD']);s.send_message(msg);s.quit()" || true
           fi
