@@ -57,13 +57,24 @@ class Settings(BaseModel):
 
     # --- Notificaciones -------------------------------------------------- #
     # "whatsapp_web": WhatsApp Web con perfil vinculado por QR (solo local).
-    # "callmebot":    WhatsApp via API HTTP (funciona en GitHub Actions).
+    # "callmebot":    WhatsApp via API HTTP (funciona en GitHub Actions, pero
+    #                 depende de un servicio gratuito de terceros que se cae).
+    # "email":        SMTP de Gmail con contraseña de aplicacion (funciona en
+    #                 GitHub Actions, sin depender de nadie mas que tu propia
+    #                 cuenta). Recomendado para la nube.
     # "none":         sin avisos; queda solo el historial.
     NOTIFIER: str = os.getenv("NOTIFIER", "").strip().lower() or "whatsapp_web"
 
     WA_PHONE_NUMBER: str = os.getenv("WA_PHONE_NUMBER", "")
     CALLMEBOT_PHONE: str = os.getenv("CALLMEBOT_PHONE", "")
     CALLMEBOT_APIKEY: str = os.getenv("CALLMEBOT_APIKEY", "")
+
+    # Cuenta de Gmail que manda el aviso y, por defecto, tambien lo recibe.
+    # EMAIL_APP_PASSWORD es la "contrasena de aplicacion" de 16 caracteres
+    # (myaccount.google.com/apppasswords), NO la contrasena normal de Gmail.
+    EMAIL_ADDRESS: str = os.getenv("EMAIL_ADDRESS", "")
+    EMAIL_APP_PASSWORD: str = os.getenv("EMAIL_APP_PASSWORD", "")
+    EMAIL_TO: str = os.getenv("EMAIL_TO", "").strip()
 
     @property
     def has_required_credentials(self) -> bool:
