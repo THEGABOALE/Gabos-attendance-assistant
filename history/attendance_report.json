@@ -48,6 +48,13 @@
       "course": "MACROECONOMIA",
       "status": "not_available",
       "message": "Se revisó la ventana del horario, pero Moodle no tenía la asistencia abierta."
+    },
+    {
+      "timestamp": "2026-09-04 17:26:35",
+      "date": "2026-09-04",
+      "course": "DERECHO EMPRESARIAL II",
+      "status": "not_available",
+      "message": "Se revisó la ventana del horario, pero Moodle no tenía la asistencia abierta."
     }
   ]
 }
