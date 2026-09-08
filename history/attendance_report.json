@@ -62,6 +62,20 @@
       "course": "PROGRAMACION AGILES",
       "status": "not_available",
       "message": "Se revisó la ventana del horario, pero Moodle no tenía la asistencia abierta."
+    },
+    {
+      "timestamp": "2026-09-08 13:00:34",
+      "date": "2026-09-08",
+      "course": "B2 COMMUNICATIVE ENGLISH",
+      "status": "not_available",
+      "message": "Se revisó la ventana del horario, pero Moodle no tenía la asistencia abierta."
+    },
+    {
+      "timestamp": "2026-09-08 13:00:34",
+      "date": "2026-09-08",
+      "course": "INGENIERIA ECONOMICA",
+      "status": "not_available",
+      "message": "Se revisó la ventana del horario, pero Moodle no tenía la asistencia abierta."
     }
   ]
 }
