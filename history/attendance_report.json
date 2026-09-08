@@ -55,6 +55,13 @@
       "course": "DERECHO EMPRESARIAL II",
       "status": "not_available",
       "message": "Se revisó la ventana del horario, pero Moodle no tenía la asistencia abierta."
+    },
+    {
+      "timestamp": "2026-09-07 19:22:54",
+      "date": "2026-09-07",
+      "course": "PROGRAMACION AGILES",
+      "status": "not_available",
+      "message": "Se revisó la ventana del horario, pero Moodle no tenía la asistencia abierta."
     }
   ]
 }
