@@ -118,6 +118,13 @@
       "course": "SIS0213 - PROGRAMACION AGILES - GRUPO 2",
       "status": "marked",
       "message": "Asistencia marcada correctamente en Moodle."
+    },
+    {
+      "timestamp": "2026-09-15 13:17:15",
+      "date": "2026-09-15",
+      "course": "B2 COMMUNICATIVE ENGLISH",
+      "status": "not_available",
+      "message": "Se revisó la ventana del horario, pero Moodle no tenía la asistencia abierta."
     }
   ]
 }
