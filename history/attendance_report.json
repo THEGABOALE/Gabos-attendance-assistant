@@ -139,6 +139,13 @@
       "course": "B2 COMMUNICATIVE ENGLISH",
       "status": "not_available",
       "message": "Se revisó la ventana del horario, pero Moodle no tenía la asistencia abierta."
+    },
+    {
+      "timestamp": "2026-09-17 15:51:05",
+      "date": "2026-09-17",
+      "course": "MACROECONOMIA",
+      "status": "not_available",
+      "message": "Se revisó la ventana del horario, pero Moodle no tenía la asistencia abierta."
     }
   ]
 }
